@@ -1,8 +1,11 @@
 /**
- * Mirrors the Supabase schema defined in supabase/migrations/0001_init.sql.
- * Keep in sync whenever the schema changes — this is the single source of
- * truth for row shapes used throughout the app.
+ * Mirrors the Supabase schema defined in supabase/migrations/0001_init.sql
+ * and 0002_add_workspace_content.sql. Keep in sync whenever the schema
+ * changes — this is the single source of truth for row shapes used
+ * throughout the app.
  */
+
+import type { WorkspaceContent } from "./workspaceContent";
 
 export type LicenseType = "trial" | "purchased" | "lifetime";
 export type LicenseStatus = "active" | "expired" | "revoked";
@@ -31,6 +34,12 @@ export type ProductRow = {
   app_url: string | null;
   is_trial_eligible: boolean;
   is_published: boolean;
+  /**
+   * The full Workspace JSON published from BGrowth Studio (see
+   * src/types/workspaceContent.ts). Null until Studio has published content
+   * for this product — the Viewer falls back to a "coming soon" state.
+   */
+  content: WorkspaceContent | null;
   created_at: string;
 };
 

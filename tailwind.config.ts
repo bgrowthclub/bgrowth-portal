@@ -32,6 +32,23 @@ export default {
           800: "#070C1A",
           900: "#03102B",
         },
+        // Per-Workspace accent, set at runtime from `brand.primaryColor` in
+        // the published Workspace JSON — see src/lib/workspaceTheme.ts.
+        // Distinct from `primary` (BGrowth's own brand color) since every
+        // product can theme itself independently.
+        workspace: {
+          DEFAULT: "rgb(var(--color-workspace-500) / <alpha-value>)",
+          50: "rgb(var(--color-workspace-50) / <alpha-value>)",
+          100: "rgb(var(--color-workspace-100) / <alpha-value>)",
+          200: "rgb(var(--color-workspace-200) / <alpha-value>)",
+          300: "rgb(var(--color-workspace-300) / <alpha-value>)",
+          400: "rgb(var(--color-workspace-400) / <alpha-value>)",
+          500: "rgb(var(--color-workspace-500) / <alpha-value>)",
+          600: "rgb(var(--color-workspace-600) / <alpha-value>)",
+          700: "rgb(var(--color-workspace-700) / <alpha-value>)",
+          800: "rgb(var(--color-workspace-800) / <alpha-value>)",
+          900: "rgb(var(--color-workspace-900) / <alpha-value>)",
+        },
       },
       fontFamily: {
         sans: [

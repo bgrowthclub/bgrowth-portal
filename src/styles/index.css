@@ -5,6 +5,17 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* Sane fallback before a Workspace's own brand.primaryColor is applied at runtime. */
+    --color-workspace-50: 234 241 254;
+    --color-workspace-100: 213 227 253;
+    --color-workspace-200: 171 199 251;
+    --color-workspace-300: 130 170 249;
+    --color-workspace-400: 88 142 246;
+    --color-workspace-500: 16 97 236;
+    --color-workspace-600: 13 78 189;
+    --color-workspace-700: 10 59 142;
+    --color-workspace-800: 6 39 95;
+    --color-workspace-900: 3 20 48;
   }
 
   ::selection {
