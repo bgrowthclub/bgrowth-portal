@@ -43,7 +43,10 @@ SQL Editor — say so and we'll do Phase 2/4 that way instead.
 **If you already have an "official" Supabase project** (e.g. one that
 already hosts the BGrowth Academy LMS schema), skip project creation —
 you're extending it, not creating a new one. Go straight to step 3 below,
-then continue to Phase 1b.
+then continue to Phase 2. **Do not try to expose the `portal` schema yet**
+— it doesn't exist as a Postgres schema until Phase 2's first migration
+creates it, and Supabase's Exposed Schemas picker can only list schemas
+that already exist. That step is Phase 2b, after the migrations run.
 
 1. [supabase.com/dashboard](https://supabase.com/dashboard) → **New project**.
 2. Name it (e.g. `bgrowth-portal-prod`), choose a region close to your
@@ -57,27 +60,6 @@ then continue to Phase 1b.
      Security entirely. Never put it in anything prefixed `VITE_`, never
      commit it, never put it anywhere except Vercel's Portal environment
      variables (Phase 5).
-
----
-
-## Phase 1b — Expose the `portal` schema (required, one-time)
-
-Every Portal/Publishing Engine table, function, and trigger lives in its
-own dedicated Postgres schema, **`portal`** — never `public` — specifically
-so this can share a Supabase project with the existing BGrowth Academy LMS
-(`lms_core_identity`/`lms_course_engine`/`lms_enrollment_progress`) without
-any risk of colliding with its tables, functions, or its existing
-`public.handle_new_user()`. See `PUBLISHING_ENGINE.md` for the full
-rationale.
-
-By default, PostgREST (the API layer both Supabase clients talk to) only
-exposes `public`. Without this step, every query Portal makes will 404 once
-deployed:
-
-1. **Project Settings → API → Exposed schemas**.
-2. Add `portal` to the list (alongside `public`, which stays as-is — the
-   LMS and anything else already relying on `public` is untouched).
-3. Save. This takes effect immediately, no restart needed.
 
 ---
 
@@ -137,9 +119,35 @@ where p.proname = 'publish_product';
 ```
 If any of these come back empty, stop and re-run the corresponding
 migration before continuing — don't proceed to seeding on a partial schema.
-Don't forget Phase 1b — a common failure mode is the migrations running
-fine but every app query still 404ing because `portal` was never added to
-Exposed Schemas.
+**Don't skip Phase 2b next** — a common failure mode is the migrations
+running fine but every app query still 404ing because `portal` was never
+added to Exposed Schemas.
+
+---
+
+## Phase 2b — Expose the `portal` schema (required, one-time)
+
+Every Portal/Publishing Engine table, function, and trigger lives in its
+own dedicated Postgres schema, **`portal`** — never `public` — specifically
+so this can share a Supabase project with the existing BGrowth Academy LMS
+(`lms_core_identity`/`lms_course_engine`/`lms_enrollment_progress`) without
+any risk of colliding with its tables, functions, or its existing
+`public.handle_new_user()`. See `PUBLISHING_ENGINE.md` for the full
+rationale.
+
+By default, PostgREST (the API layer both Supabase clients talk to) only
+exposes `public` (and `graphql_public`). Without this step, every query
+Portal makes will 404 once deployed. This step only works **after** Phase
+2's first migration has created the `portal` schema — that's why it's
+here and not before Phase 2:
+
+1. **Project Settings → API → Exposed schemas**.
+2. Add `portal` to the list (alongside `public`, which stays as-is — the
+   LMS and anything else already relying on `public` is untouched).
+3. Save. This usually takes effect within a few seconds. If a query still
+   404s right after saving, use the SQL Editor to run
+   `notify pgrst, 'reload schema';` to force PostgREST to reload its schema
+   cache immediately, then retry.
 
 ---
 
