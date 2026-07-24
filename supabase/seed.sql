@@ -13,14 +13,14 @@
 -- Run manually against your Supabase project (SQL editor or
 -- `supabase db execute`) after applying the migrations.
 
-insert into public.workspace_categories (name, slug, sort_order) values
+insert into portal.workspace_categories (name, slug, sort_order) values
   ('Business & Entrepreneurship', 'business-entrepreneurship', 0)
 on conflict (slug) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- Notary Appointment Workspace
 -- ---------------------------------------------------------------------------
-select public.publish_product(
+select portal.publish_product(
   p_studio_product_id => 'notary-appointment-checklist',
   p_slug => 'notary-appointment-workspace',
   p_name => 'Notary Appointment Workspace',
@@ -210,7 +210,7 @@ select public.publish_product(
 -- ---------------------------------------------------------------------------
 -- Move-Out Cleaning Inspection Workspace
 -- ---------------------------------------------------------------------------
-select public.publish_product(
+select portal.publish_product(
   p_studio_product_id => 'cleaning-moveout-checklist',
   p_slug => 'cleaning-moveout-workspace',
   p_name => 'Move-Out Cleaning Inspection Workspace',

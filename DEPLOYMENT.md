@@ -5,6 +5,15 @@ environment variables set anywhere. Follow the phases in order — a couple of
 steps in Phase 7 genuinely depend on the URL Vercel assigns in Phase 5, so
 that ordering isn't arbitrary.
 
+**If a Supabase project already exists** — in particular, the official
+BGrowth Supabase project that already hosts the BGrowth Academy LMS schema
+— skip Phase 1's project creation and go straight to Phase 1b. Every
+Portal/Publishing Engine object lives in its own dedicated `portal` schema
+specifically so these migrations are safe to run additively against that
+shared project without touching the LMS's tables, functions, or its
+existing `public.handle_new_user()`. See `PUBLISHING_ENGINE.md` for the
+full rationale.
+
 At the end you'll have: a live Supabase project (database + auth +
 storage), `bgrowth-portal` deployed on Vercel (the customer-facing site +
 the Publishing Engine's API routes), and `bgrowth-studio` deployed on
@@ -31,6 +40,11 @@ SQL Editor — say so and we'll do Phase 2/4 that way instead.
 
 ## Phase 1 — Create the Supabase project
 
+**If you already have an "official" Supabase project** (e.g. one that
+already hosts the BGrowth Academy LMS schema), skip project creation —
+you're extending it, not creating a new one. Go straight to step 3 below,
+then continue to Phase 1b.
+
 1. [supabase.com/dashboard](https://supabase.com/dashboard) → **New project**.
 2. Name it (e.g. `bgrowth-portal-prod`), choose a region close to your
    expected users, set a strong database password, create it. Wait for
@@ -46,50 +60,94 @@ SQL Editor — say so and we'll do Phase 2/4 that way instead.
 
 ---
 
+## Phase 1b — Expose the `portal` schema (required, one-time)
+
+Every Portal/Publishing Engine table, function, and trigger lives in its
+own dedicated Postgres schema, **`portal`** — never `public` — specifically
+so this can share a Supabase project with the existing BGrowth Academy LMS
+(`lms_core_identity`/`lms_course_engine`/`lms_enrollment_progress`) without
+any risk of colliding with its tables, functions, or its existing
+`public.handle_new_user()`. See `PUBLISHING_ENGINE.md` for the full
+rationale.
+
+By default, PostgREST (the API layer both Supabase clients talk to) only
+exposes `public`. Without this step, every query Portal makes will 404 once
+deployed:
+
+1. **Project Settings → API → Exposed schemas**.
+2. Add `portal` to the list (alongside `public`, which stays as-is — the
+   LMS and anything else already relying on `public` is untouched).
+3. Save. This takes effect immediately, no restart needed.
+
+---
+
 ## Phase 2 — Run the migrations, in order
 
 Supabase's **SQL Editor** (left sidebar) is the simplest path — no CLI
 setup needed. Run each file's contents as its own query, top to bottom,
-**in this exact order** (each depends on the one before it):
+**in this exact order** (each depends on the one before it). All four are
+purely additive: they only ever `create schema if not exists portal` and
+`create table`/`create function` inside it — none of them read, alter, or
+drop anything in `public` or any LMS schema.
 
-1. `supabase/migrations/0001_init.sql` — `workspace_categories`, `products`
-   (original shape), `users` + the `handle_new_user()` trigger, `licenses`
-   + the one-trial-per-user partial unique index.
+1. `supabase/migrations/0001_init.sql` — creates `schema portal` if it
+   doesn't already exist, then `portal.workspace_categories`,
+   `portal.products` (original shape), `portal.users` +
+   `portal.handle_new_portal_user()` (a uniquely-named trigger function —
+   deliberately not `handle_new_user()`, to coexist with the LMS's own
+   function of that name), `portal.licenses` + the one-trial-per-user
+   partial unique index. The `auth.users` trigger this migration attaches
+   is named `on_auth_user_created_portal_profile` — also unique, so it
+   never conflicts with or replaces whatever trigger(s) the LMS already
+   has on `auth.users`.
 2. `supabase/migrations/0002_add_workspace_content.sql` — adds the
-   `products.content` column.
+   `portal.products.content` column.
 3. `supabase/migrations/0003_publishing_engine.sql` — the big one:
-   extends `products` (`content_type`, `status`, `studio_product_id`,
-   etc.), creates `product_versions`, `publication_destinations` (seeded
-   with 5 rows), `product_destinations`, `published_assets`,
-   `catalog_index`, and the `publish_product()` function.
+   extends `portal.products` (`content_type`, `status`,
+   `studio_product_id`, etc.), creates `portal.product_versions`,
+   `portal.publication_destinations` (seeded with 5 rows),
+   `portal.product_destinations`, `portal.published_assets`,
+   `portal.catalog_index`, and the `portal.publish_product()` function.
 4. `supabase/migrations/0004_publishing_engine_storage.sql` — creates the
-   `product-assets` Storage bucket and its public-read policy.
+   `portal-product-assets` Storage bucket and its public-read policy (named
+   with the `portal-` prefix because Storage bucket ids are one global
+   namespace across the whole project, unlike schema-scoped tables).
 
 **After running all four, verify in the SQL Editor:**
 ```sql
--- Should return 7 tables
+-- Should return 7 tables, all in the portal schema
 select table_name from information_schema.tables
-where table_schema = 'public' order by table_name;
+where table_schema = 'portal' order by table_name;
+
+-- Confirms the LMS schemas are untouched and still present alongside portal
+select schema_name from information_schema.schemata
+where schema_name in ('portal', 'public', 'lms_core_identity', 'lms_course_engine', 'lms_enrollment_progress')
+order by schema_name;
 
 -- Should return 5 rows, only 'portal' with is_active = true
-select key, is_active from public.publication_destinations;
+select key, is_active from portal.publication_destinations;
 
 -- Should return one row for the bucket
-select id, public from storage.buckets where id = 'product-assets';
+select id, public from storage.buckets where id = 'portal-product-assets';
 
--- Should return the function
-select proname from pg_proc where proname = 'publish_product';
+-- Should return the function, schema = 'portal'
+select p.proname, n.nspname from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where p.proname = 'publish_product';
 ```
 If any of these come back empty, stop and re-run the corresponding
 migration before continuing — don't proceed to seeding on a partial schema.
+Don't forget Phase 1b — a common failure mode is the migrations running
+fine but every app query still 404ing because `portal` was never added to
+Exposed Schemas.
 
 ---
 
 ## Phase 3 — Confirm the Storage bucket (covered by Phase 2's check above)
 
-If the bucket query above returned `product-assets | true`, this phase is
-already done — migration `0004` created it. Nothing manual needed here
-unless that query came back empty, in which case re-run `0004`.
+If the bucket query above returned `portal-product-assets | true`, this
+phase is already done — migration `0004` created it. Nothing manual needed
+here unless that query came back empty, in which case re-run `0004`.
 
 ---
 
@@ -97,16 +155,16 @@ unless that query came back empty, in which case re-run `0004`.
 
 `supabase/seed.sql` publishes the two real products (Notary Appointment
 Workspace, Move-Out Cleaning Inspection Workspace) **through the
-`publish_product()` function itself** — not raw inserts — so
+`portal.publish_product()` function itself** — not raw inserts — so
 `product_versions`, `product_destinations`, and `catalog_index` all end up
 populated correctly, exactly as a real Studio publish would leave them.
 
 Run the entire contents of `supabase/seed.sql` in the SQL Editor. Then verify:
 ```sql
-select slug, status, current_version from public.products;
+select slug, status, current_version from portal.products;
 -- both products, status = 'published', current_version = 1
 
-select count(*) from public.catalog_index;
+select count(*) from portal.catalog_index;
 -- 2
 ```
 Safe to re-run — each run just publishes a new version (`current_version`
@@ -226,7 +284,7 @@ nothing in this stack has been verified this way before. Suggested order:
     disabled until this happens), then click **Publish to Portal**.
     Confirm the toast shows a version number, then check in Supabase:
     ```sql
-    select slug, current_version, last_published_by from public.products
+    select slug, current_version, last_published_by from portal.products
     order by last_published_at desc limit 1;
     ```
     and confirm a new row appended to `product_versions` for that product.

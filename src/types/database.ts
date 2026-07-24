@@ -182,8 +182,13 @@ export type PublishProductArgs = {
   p_assets?: Array<{ assetType: AssetType; url?: string; mimeType?: string; sizeBytes?: number; metadata?: Record<string, unknown> }>;
 };
 
+// Everything lives in the `portal` schema, not `public` — this database is
+// shared with the existing BGrowth Academy LMS. The schema key here must
+// match the `db.schema` option passed to createClient() in
+// supabaseClient.ts / api/_lib/supabaseAdmin.ts, or every query silently
+// targets the wrong schema.
 export interface Database {
-  public: {
+  portal: {
     Tables: {
       users: {
         Row: UserProfileRow;

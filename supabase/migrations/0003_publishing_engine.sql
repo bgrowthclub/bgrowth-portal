@@ -7,14 +7,17 @@
 -- richer than Draft/Published even though only those two states are driven
 -- yet, tracking every generated asset and a full version history.
 --
--- Everything here is additive to 0001/0002 — existing products rows and the
--- WorkspaceRenderer's read path are unaffected.
+-- All objects live in the `portal` schema (created in 0001_init.sql) — this
+-- database is shared with the existing BGrowth Academy LMS, so nothing here
+-- touches `public` or any LMS object. Everything here is additive to
+-- 0001/0002 — existing rows and the WorkspaceRenderer's read path are
+-- unaffected.
 
 -- ---------------------------------------------------------------------------
 -- products: content-type-aware + publish bookkeeping
 -- ---------------------------------------------------------------------------
 
-alter table public.products
+alter table portal.products
   add column if not exists studio_product_id text,
   add column if not exists content_type text not null default 'workspace',
   -- Schema version of THIS content_type's JSON shape (lets a renderer pick
@@ -27,42 +30,42 @@ alter table public.products
   add column if not exists last_published_at timestamptz,
   add column if not exists last_published_by text;
 
-alter table public.products
+alter table portal.products
   add constraint if not exists products_content_type_check
   check (content_type in (
     'workspace', 'template', 'document', 'pdf', 'course',
     'calculator', 'ai_tool', 'academy_lesson'
   ));
 
-alter table public.products
+alter table portal.products
   add constraint if not exists products_status_check
   check (status in ('draft', 'ready_for_review', 'approved', 'published', 'archived'));
 
 -- Migrate the old boolean gate, then retire it — status is now the single
 -- source of truth for publish state.
-update public.products set status = 'published' where is_published = true;
-update public.products set status = 'draft' where is_published = false;
+update portal.products set status = 'published' where is_published = true;
+update portal.products set status = 'draft' where is_published = false;
 
-drop policy if exists "Anyone can read published products" on public.products;
-alter table public.products drop column if exists is_published;
+drop policy if exists "Anyone can read published products" on portal.products;
+alter table portal.products drop column if exists is_published;
 
 create unique index if not exists products_studio_product_id_key
-  on public.products (studio_product_id)
+  on portal.products (studio_product_id)
   where studio_product_id is not null;
 
 -- This is the actual "never expose Draft products" guarantee — enforced at
 -- the database, not application logic. A bug in Portal's frontend cannot
 -- leak a draft/archived row because there is no row to return.
 create policy "Anyone can read published products"
-  on public.products for select
+  on portal.products for select
   using (status = 'published');
 
 -- ---------------------------------------------------------------------------
 -- product_versions — full snapshot per publish, for history and rollback
 -- ---------------------------------------------------------------------------
-create table if not exists public.product_versions (
+create table if not exists portal.product_versions (
   id uuid primary key default gen_random_uuid(),
-  product_id uuid not null references public.products(id) on delete cascade,
+  product_id uuid not null references portal.products(id) on delete cascade,
   version int not null,
   status text not null check (status in ('draft', 'ready_for_review', 'approved', 'published', 'archived')),
   name text not null,
@@ -78,14 +81,14 @@ create table if not exists public.product_versions (
 -- No public policy at all: anon/authenticated get zero rows. Only the
 -- service role (used exclusively by the Publishing Engine's endpoint) can
 -- read this — it may contain draft/unpublished snapshots.
-alter table public.product_versions enable row level security;
+alter table portal.product_versions enable row level security;
 
-create index if not exists product_versions_product_id_idx on public.product_versions (product_id);
+create index if not exists product_versions_product_id_idx on portal.product_versions (product_id);
 
 -- ---------------------------------------------------------------------------
 -- publication_destinations — lookup of where a product can be published
 -- ---------------------------------------------------------------------------
-create table if not exists public.publication_destinations (
+create table if not exists portal.publication_destinations (
   id uuid primary key default gen_random_uuid(),
   key text not null unique,
   name text not null,
@@ -94,10 +97,10 @@ create table if not exists public.publication_destinations (
   created_at timestamptz not null default now()
 );
 
-alter table public.publication_destinations enable row level security;
+alter table portal.publication_destinations enable row level security;
 -- Internal reference data — read via service role only, nothing customer-facing needs it.
 
-insert into public.publication_destinations (key, name, is_active) values
+insert into portal.publication_destinations (key, name, is_active) values
   ('portal', 'BGrowth Portal', true),
   ('website', 'BGrowth Website', false),
   ('etsy', 'Etsy', false),
@@ -117,10 +120,10 @@ on conflict (key) do nothing;
 -- this table is the full multi-channel record, including a 'portal' row
 -- written on every Portal publish. The duplication between the two for the
 -- 'portal' destination is deliberate, not an oversight.
-create table if not exists public.product_destinations (
+create table if not exists portal.product_destinations (
   id uuid primary key default gen_random_uuid(),
-  product_id uuid not null references public.products(id) on delete cascade,
-  destination_id uuid not null references public.publication_destinations(id),
+  product_id uuid not null references portal.products(id) on delete cascade,
+  destination_id uuid not null references portal.publication_destinations(id),
   status text not null default 'draft' check (status in ('draft', 'ready_for_review', 'approved', 'published', 'archived')),
   external_id text,
   external_url text,
@@ -131,7 +134,7 @@ create table if not exists public.product_destinations (
   unique (product_id, destination_id)
 );
 
-alter table public.product_destinations enable row level security;
+alter table portal.product_destinations enable row level security;
 -- Internal publishing ledger — service role only.
 
 -- ---------------------------------------------------------------------------
@@ -140,15 +143,15 @@ alter table public.product_destinations enable row level security;
 -- Only workspace_json and cover_image are populated today. The remaining
 -- asset_type values already exist so future PDF/social/marketplace asset
 -- generation needs no schema change — just new rows.
-create table if not exists public.published_assets (
+create table if not exists portal.published_assets (
   id uuid primary key default gen_random_uuid(),
-  product_id uuid not null references public.products(id) on delete cascade,
+  product_id uuid not null references portal.products(id) on delete cascade,
   product_version int not null,
   asset_type text not null check (asset_type in (
     'workspace_json', 'cover_image', 'thumbnail', 'welcome_pdf',
     'product_pdf', 'social_image', 'marketplace_image', 'marketing_material'
   )),
-  destination_id uuid not null references public.publication_destinations(id),
+  destination_id uuid not null references portal.publication_destinations(id),
   storage_path text,
   url text,
   mime_type text,
@@ -158,11 +161,11 @@ create table if not exists public.published_assets (
   unique (product_id, product_version, asset_type, destination_id)
 );
 
-alter table public.published_assets enable row level security;
+alter table portal.published_assets enable row level security;
 -- Internal generation ledger — service role only (may reference
 -- destination-specific assets not meant for public consumption).
 
-create index if not exists published_assets_product_id_idx on public.published_assets (product_id);
+create index if not exists published_assets_product_id_idx on portal.published_assets (product_id);
 
 -- ---------------------------------------------------------------------------
 -- catalog_index — read-optimized foundation for categories/search/featured/
@@ -174,13 +177,13 @@ create index if not exists published_assets_product_id_idx on public.published_a
 -- products directly) — this is the ledger the engine maintains; wiring the
 -- Portal's search/rails to read from it is a follow-up.
 -- ---------------------------------------------------------------------------
-create table if not exists public.catalog_index (
-  product_id uuid primary key references public.products(id) on delete cascade,
+create table if not exists portal.catalog_index (
+  product_id uuid primary key references portal.products(id) on delete cascade,
   slug text not null,
   name text not null,
   short_description text not null,
   content_type text not null,
-  category_id uuid references public.workspace_categories(id),
+  category_id uuid references portal.workspace_categories(id),
   cover_image_url text,
   is_featured boolean not null default false,
   is_best_seller boolean not null default false,
@@ -189,14 +192,14 @@ create table if not exists public.catalog_index (
   updated_at timestamptz not null default now()
 );
 
-alter table public.catalog_index enable row level security;
+alter table portal.catalog_index enable row level security;
 
 create policy "Anyone can read the catalog index"
-  on public.catalog_index for select
+  on portal.catalog_index for select
   using (true);
 
-create index if not exists catalog_index_search_idx on public.catalog_index using gin (search_vector);
-create index if not exists catalog_index_category_idx on public.catalog_index (category_id);
+create index if not exists catalog_index_search_idx on portal.catalog_index using gin (search_vector);
+create index if not exists catalog_index_category_idx on portal.catalog_index (category_id);
 
 -- ---------------------------------------------------------------------------
 -- publish_product() — the Publishing Engine's single atomic entry point.
@@ -205,8 +208,12 @@ create index if not exists catalog_index_category_idx on public.catalog_index (c
 -- in one transaction, so a partial write (e.g. product updated but no
 -- version recorded) can't happen. Called exclusively by the Portal's
 -- publishing-engine API route via the service role key.
+--
+-- search_path is empty and every reference is fully schema-qualified — the
+-- safe pattern for a security definer function sharing a database with
+-- another application's objects.
 -- ---------------------------------------------------------------------------
-create or replace function public.publish_product(
+create or replace function portal.publish_product(
   p_studio_product_id text,
   p_slug text,
   p_name text,
@@ -224,12 +231,12 @@ create or replace function public.publish_product(
   p_is_trial_eligible boolean default true,
   p_assets jsonb default '[]'::jsonb
 )
-returns public.products
+returns portal.products
 language plpgsql
-security definer set search_path = public
+security definer set search_path = ''
 as $$
 declare
-  v_product public.products;
+  v_product portal.products;
   v_category_id uuid;
   v_destination_id uuid;
   v_new_version int;
@@ -239,21 +246,21 @@ begin
     raise exception 'Invalid status: %', p_status;
   end if;
 
-  select id into v_destination_id from public.publication_destinations where key = p_destination_key;
+  select id into v_destination_id from portal.publication_destinations where key = p_destination_key;
   if v_destination_id is null then
     raise exception 'Unknown publication destination: %', p_destination_key;
   end if;
 
   if p_category_slug is not null then
-    select id into v_category_id from public.workspace_categories where slug = p_category_slug;
+    select id into v_category_id from portal.workspace_categories where slug = p_category_slug;
   end if;
 
   -- Upsert the product row by its stable Studio id.
   select current_version + 1 into v_new_version
-    from public.products where studio_product_id = p_studio_product_id;
+    from portal.products where studio_product_id = p_studio_product_id;
   v_new_version := coalesce(v_new_version, 1);
 
-  insert into public.products (
+  insert into portal.products (
     studio_product_id, slug, name, short_description, content, content_type,
     content_version, category_id, metadata, cover_image_url, is_trial_eligible,
     status, current_version, last_published_at, last_published_by
@@ -272,7 +279,7 @@ begin
     content_version = excluded.content_version,
     category_id = excluded.category_id,
     metadata = excluded.metadata,
-    cover_image_url = coalesce(excluded.cover_image_url, public.products.cover_image_url),
+    cover_image_url = coalesce(excluded.cover_image_url, portal.products.cover_image_url),
     is_trial_eligible = excluded.is_trial_eligible,
     status = excluded.status,
     current_version = excluded.current_version,
@@ -281,7 +288,7 @@ begin
   returning * into v_product;
 
   -- Full snapshot for history/rollback.
-  insert into public.product_versions (
+  insert into portal.product_versions (
     product_id, version, status, name, short_description, cover_image_url, content, published_by, change_notes
   ) values (
     v_product.id, v_new_version, p_status, p_name, p_short_description, v_product.cover_image_url, p_content, p_published_by, p_change_notes
@@ -289,7 +296,7 @@ begin
 
   -- Per-destination ledger (the 'portal' row here mirrors products.status
   -- deliberately — see the comment on product_destinations above).
-  insert into public.product_destinations (
+  insert into portal.product_destinations (
     product_id, destination_id, status, published_version, last_published_at, last_published_by
   ) values (
     v_product.id, v_destination_id, p_status, v_new_version, now(), p_published_by
@@ -303,19 +310,19 @@ begin
   -- Asset ledger: the Workspace JSON itself, the cover image if provided,
   -- and whatever else was sent (future PDF/social/marketplace assets need
   -- no schema change here — just new entries in p_assets).
-  insert into public.published_assets (product_id, product_version, asset_type, destination_id, mime_type, metadata)
+  insert into portal.published_assets (product_id, product_version, asset_type, destination_id, mime_type, metadata)
   values (v_product.id, v_new_version, 'workspace_json', v_destination_id, 'application/json', '{}'::jsonb)
   on conflict (product_id, product_version, asset_type, destination_id) do nothing;
 
   if p_cover_image_url is not null then
-    insert into public.published_assets (product_id, product_version, asset_type, destination_id, url, mime_type)
+    insert into portal.published_assets (product_id, product_version, asset_type, destination_id, url, mime_type)
     values (v_product.id, v_new_version, 'cover_image', v_destination_id, p_cover_image_url, 'image/*')
     on conflict (product_id, product_version, asset_type, destination_id) do update set url = excluded.url;
   end if;
 
   for v_asset in select * from jsonb_array_elements(coalesce(p_assets, '[]'::jsonb))
   loop
-    insert into public.published_assets (product_id, product_version, asset_type, destination_id, url, mime_type, size_bytes, metadata)
+    insert into portal.published_assets (product_id, product_version, asset_type, destination_id, url, mime_type, size_bytes, metadata)
     values (
       v_product.id, v_new_version, v_asset->>'assetType', v_destination_id, v_asset->>'url',
       v_asset->>'mimeType', (v_asset->>'sizeBytes')::int, coalesce(v_asset->'metadata', '{}'::jsonb)
@@ -326,7 +333,7 @@ begin
 
   -- Catalog index only ever holds currently-published rows.
   if p_status = 'published' and p_destination_key = 'portal' then
-    insert into public.catalog_index (
+    insert into portal.catalog_index (
       product_id, slug, name, short_description, content_type, category_id,
       cover_image_url, published_at, search_vector, updated_at
     ) values (
@@ -341,11 +348,11 @@ begin
       content_type = excluded.content_type,
       category_id = excluded.category_id,
       cover_image_url = excluded.cover_image_url,
-      published_at = coalesce(public.catalog_index.published_at, excluded.published_at),
+      published_at = coalesce(portal.catalog_index.published_at, excluded.published_at),
       search_vector = excluded.search_vector,
       updated_at = excluded.updated_at;
   else
-    delete from public.catalog_index where product_id = v_product.id;
+    delete from portal.catalog_index where product_id = v_product.id;
   end if;
 
   return v_product;

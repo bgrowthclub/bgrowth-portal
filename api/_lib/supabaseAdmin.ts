@@ -10,6 +10,12 @@ import type { Database } from "../../src/types/database";
  *
  * Deliberately reads plain process.env vars, not import.meta.env: these
  * functions run under Node on Vercel, not through Vite.
+ *
+ * db.schema: "portal" — this database is shared with the existing BGrowth
+ * Academy LMS; all Publishing Engine tables/functions live in the `portal`
+ * schema specifically to avoid any collision with LMS objects in `public`.
+ * Requires "portal" to be in this Supabase project's exposed schemas
+ * (Project Settings → API) or every call here 404s — see DEPLOYMENT.md.
  */
 export function getSupabaseAdmin() {
   const url = process.env.SUPABASE_URL;
@@ -22,6 +28,7 @@ export function getSupabaseAdmin() {
   }
 
   return createClient<Database>(url, serviceRoleKey, {
+    db: { schema: "portal" },
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }

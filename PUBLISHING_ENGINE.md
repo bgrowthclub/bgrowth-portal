@@ -11,6 +11,27 @@ and `supabase/migrations/000{3,4}_*.sql`) for infrastructure convenience —
 that's where the Supabase project credentials already are — but it is
 conceptually independent of the Portal. See "Where the Engine lives" below.
 
+**The Supabase project is shared, not dedicated.** It's the official BGrowth
+database, and already hosts the BGrowth Academy LMS
+(`lms_core_identity`/`lms_course_engine`/`lms_enrollment_progress`) — a
+separate application with its own tables, functions, and an existing
+`public.handle_new_user()`. Every table, function, and trigger the Publishing
+Engine and Portal own lives in its own dedicated Postgres schema, **`portal`**,
+never in `public` — this is a structural guarantee against collision with LMS
+objects, not just a naming convention. Practically, this means:
+- Every migration creates objects as `portal.<name>`, never `public.<name>`.
+- Both Supabase clients (`src/services/supabaseClient.ts`,
+  `api/_lib/supabaseAdmin.ts`) pass `db: { schema: "portal" }` — the Supabase
+  project must have `portal` added to its exposed schemas
+  (Project Settings → API) or every query 404s. See `DEPLOYMENT.md`.
+- The Storage bucket is `portal-product-assets`, not the generic
+  `product-assets` — bucket ids are one global namespace, unlike tables,
+  so this stays unambiguously scoped too.
+- Portal's own `auth.users` profile-creation trigger/function are uniquely
+  named (`on_auth_user_created_portal_profile` /
+  `portal.handle_new_portal_user()`) specifically so they coexist with
+  whatever the LMS already has on `auth.users`, rather than replacing it.
+
 ## Governing principles
 
 These are durable rules for this service, not preferences for one feature.

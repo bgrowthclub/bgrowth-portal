@@ -2,9 +2,15 @@
 -- today; thumbnails/PDFs/social/marketplace images later — same bucket,
 -- organized by path prefix, e.g. covers/{studio_product_id}/{timestamp}.png).
 -- Public so the Portal can render images directly via their public URL.
+--
+-- Named with a portal- prefix, not the generic "product-assets", since
+-- Storage bucket ids are a single global namespace (not scoped by Postgres
+-- schema the way tables are) — this database is shared with the BGrowth
+-- Academy LMS, which may have its own bucket naming, so this stays
+-- unambiguously scoped to avoid any chance of colliding with one.
 
 insert into storage.buckets (id, name, public)
-values ('product-assets', 'product-assets', true)
+values ('portal-product-assets', 'portal-product-assets', true)
 on conflict (id) do nothing;
 
 -- Public buckets already serve objects via their public URL without an
@@ -12,6 +18,6 @@ on conflict (id) do nothing;
 -- performed exclusively by the Publishing Engine's API route using the
 -- service role key, which bypasses RLS — no insert/update/delete policy is
 -- granted to anon/authenticated here.
-create policy "Anyone can read product assets"
+create policy "Anyone can read portal product assets"
   on storage.objects for select
-  using (bucket_id = 'product-assets');
+  using (bucket_id = 'portal-product-assets');
