@@ -300,14 +300,24 @@ nothing in this stack has been verified this way before. Suggested order:
    `ProtectedRoute`/`GuestRoute` behave correctly on a return visit.
 10. **Profile page** shows the license from step 5.
 11. **Studio → Portal test**: in Studio's Checklist Builder, open (or
-    create) a template, **Save Template** first (required — the button is
-    disabled until this happens), then click **Publish to Portal**.
-    Confirm the toast shows a version number, then check in Supabase:
+    create) a template, fill in **Category**, upload a **Cover Image**, set
+    a **Free Trial** duration (e.g. 10 Days), **Save Template** first
+    (required — the button is disabled until this happens), then click
+    **Publish to Portal**. Confirm the toast shows a version number, then
+    check in Supabase:
     ```sql
-    select slug, current_version, last_published_by from portal.products
+    select slug, current_version, last_published_by, category_id,
+           cover_image_url, is_trial_eligible, trial_duration, trial_unit
+    from portal.products
     order by last_published_at desc limit 1;
     ```
-    and confirm a new row appended to `product_versions` for that product.
+    Confirm `cover_image_url` is populated (a real Storage URL, not null),
+    `trial_duration`/`trial_unit` match what you entered, `category_id` is
+    set, and a new row appended to `product_versions` for that product.
+    Then confirm the new Workspace actually appears on Trial Selection with
+    that cover image and can be activated end-to-end (steps 1–8 above) —
+    publishing alone isn't proof it's usable, seeing it through activation
+    and the Viewer is.
 
 If all 11 steps pass, the deployment is verified working end-to-end for
 real — not just "should work."
