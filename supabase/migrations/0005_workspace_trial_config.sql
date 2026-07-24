@@ -12,9 +12,16 @@ alter table portal.products
   add column if not exists trial_duration int,
   add column if not exists trial_unit text not null default 'days';
 
-alter table portal.products
-  add constraint if not exists products_trial_unit_check
-  check (trial_unit in ('days'));
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'products_trial_unit_check' and conrelid = 'portal.products'::regclass
+  ) then
+    alter table portal.products
+      add constraint products_trial_unit_check
+      check (trial_unit in ('days'));
+  end if;
+end $$;
 
 -- One-time backfill: every already-published, trial-eligible product needs a
 -- concrete duration or the Portal has nothing to display. 14 matches the
