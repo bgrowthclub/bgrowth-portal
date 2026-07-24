@@ -28,6 +28,8 @@ select portal.publish_product(
   p_category_slug => 'business-entrepreneurship',
   p_status => 'published',
   p_published_by => 'seed-script',
+  p_trial_duration => 14,
+  p_trial_unit => 'days',
   p_content => $json$
   {
     "productId": "notary-appointment-checklist",
@@ -218,6 +220,8 @@ select portal.publish_product(
   p_category_slug => 'business-entrepreneurship',
   p_status => 'published',
   p_published_by => 'seed-script',
+  p_trial_duration => 7,
+  p_trial_unit => 'days',
   p_content => $json$
   {
     "productId": "cleaning-moveout-checklist",

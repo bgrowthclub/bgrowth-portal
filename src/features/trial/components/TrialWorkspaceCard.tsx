@@ -1,5 +1,6 @@
 import type { ProductRow } from "@/types/database";
 import { Button } from "@/components/ui/Button";
+import { formatTrialSentence } from "@/lib/trial";
 
 interface TrialWorkspaceCardProps {
   product: ProductRow;
@@ -26,6 +27,11 @@ export function TrialWorkspaceCard({ product, isSelected, onSelect }: TrialWorks
         <p className="mt-2 line-clamp-2 text-sm text-navy-500 dark:text-white/60">
           {product.short_description}
         </p>
+        {product.is_trial_eligible && product.trial_duration != null && (
+          <p className="mt-2 text-xs font-medium text-primary">
+            Free for {formatTrialSentence(product.trial_duration, product.trial_unit)}
+          </p>
+        )}
         <div className="mt-5 flex items-center gap-3">
           <Button
             variant={isSelected ? "primary" : "secondary"}

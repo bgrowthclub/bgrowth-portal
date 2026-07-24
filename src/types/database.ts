@@ -9,6 +9,9 @@ import type { WorkspaceContent } from "./workspaceContent";
 export type LicenseType = "trial" | "purchased" | "lifetime";
 export type LicenseStatus = "active" | "expired" | "revoked";
 
+/** Only "days" is supported today — adding a unit is a type + check-constraint change, nothing else. */
+export type TrialUnit = "days";
+
 /** Content types the BGrowth Publishing Engine can publish. Only "workspace" is real today. */
 export type ContentType =
   | "workspace"
@@ -59,7 +62,11 @@ export type ProductRow = {
   cover_image_url: string | null;
   category_id: string | null;
   app_url: string | null;
+  /** Whether this Workspace offers a trial at all — "trialEnabled" in product terms. */
   is_trial_eligible: boolean;
+  /** Null when is_trial_eligible is false (no trial offered) or not yet configured by Studio. */
+  trial_duration: number | null;
+  trial_unit: TrialUnit;
   content_type: ContentType;
   /** Schema version of THIS content_type's JSON shape — distinct from current_version (publish history). */
   content_version: number;
@@ -180,6 +187,8 @@ export type PublishProductArgs = {
   p_change_notes?: string | null;
   p_is_trial_eligible?: boolean;
   p_assets?: Array<{ assetType: AssetType; url?: string; mimeType?: string; sizeBytes?: number; metadata?: Record<string, unknown> }>;
+  p_trial_duration?: number | null;
+  p_trial_unit?: TrialUnit;
 };
 
 // Everything lives in the `portal` schema, not `public` — this database is

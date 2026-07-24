@@ -3,7 +3,8 @@ import { AccordionItem } from "@/components/ui/Accordion";
 const FAQS = [
   {
     question: "Is the free trial really free?",
-    answer: "Yes — no card required. You get full access to one Workspace of your choice for 14 days.",
+    answer:
+      "Yes — no card required. You get full access to one Workspace of your choice for its full trial period. Trial length varies by Workspace, and is always shown before you activate.",
   },
   {
     question: "Can I switch to a different Workspace during my trial?",

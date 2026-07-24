@@ -1,7 +1,7 @@
 const BENEFITS = [
   {
     title: "Zero commitment",
-    description: "Explore a full Workspace for 14 days — no card required, cancel anytime.",
+    description: "Explore a full Workspace, completely free — no card required, cancel anytime.",
     icon: "M5 13l4 4L19 7",
   },
   {
@@ -22,7 +22,7 @@ export function BenefitsSection() {
       <div className="mx-auto max-w-2xl text-center">
         <span className="text-sm font-semibold uppercase tracking-wider text-primary">Why BGrowth</span>
         <h2 className="mt-3 text-3xl font-bold text-navy-900 dark:text-white sm:text-4xl">
-          Built to earn your trust in 14 days
+          Built to earn your trust, risk-free
         </h2>
       </div>
       <div className="mt-14 grid gap-6 sm:grid-cols-3">

@@ -1,7 +1,7 @@
 const STEPS = [
   { title: "Create your account", description: "Sign up in under a minute — just your name, email, and a password." },
   { title: "Choose one Workspace", description: "Browse every BGrowth Workspace and pick the one that fits you best." },
-  { title: "Activate your trial", description: "Confirm your choice and get instant, full access for 14 days." },
+  { title: "Activate your trial", description: "Confirm your choice and get instant, full access for your trial period." },
   { title: "Decide with confidence", description: "Love it? Upgrade any time. Your data and progress carry over." },
 ];
 

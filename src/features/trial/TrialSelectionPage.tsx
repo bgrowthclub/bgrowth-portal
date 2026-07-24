@@ -41,8 +41,15 @@ export function TrialSelectionPage() {
     setActivationError(null);
     setIsActivating(true);
     try {
-      await licenseService.activateTrial(user.id, selected.id);
-      navigate("/library", { replace: true, state: { justActivatedName: selected.name } });
+      await licenseService.activateTrial(user.id, selected);
+      navigate("/library", {
+        replace: true,
+        state: {
+          justActivatedName: selected.name,
+          justActivatedTrialDuration: selected.trial_duration,
+          justActivatedTrialUnit: selected.trial_unit,
+        },
+      });
     } catch (err) {
       setActivationError(err instanceof Error ? err.message : "Unable to activate your trial. Please try again.");
       setIsConfirmOpen(false);

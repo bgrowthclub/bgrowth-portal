@@ -62,6 +62,11 @@ const publishRequestSchema = z.object({
   publishedBy: z.string().min(1),
   changeNotes: z.string().nullable().optional(),
   isTrialEligible: z.boolean().default(true),
+  // Per-Workspace trial length — not a Portal-wide constant. null/omitted
+  // means "not configured yet"; the Portal falls back to hiding trial
+  // messaging for this product rather than assuming a duration.
+  trialDuration: z.number().int().positive().nullable().optional(),
+  trialUnit: z.enum(["days"]).default("days"),
   coverImage: imageInputSchema.optional(),
   assets: z.array(assetInputSchema).default([]),
 });
@@ -145,6 +150,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_change_notes: payload.changeNotes ?? null,
       p_is_trial_eligible: payload.isTrialEligible,
       p_assets: resolvedAssets,
+      p_trial_duration: payload.trialDuration ?? null,
+      p_trial_unit: payload.trialUnit,
     });
 
     if (error) throw error;

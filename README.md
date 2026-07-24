@@ -122,6 +122,14 @@ Required environment variables (server-side only — never prefix these with
 | `users` | Public profile row, 1:1 with `auth.users`, auto-created by a trigger on signup |
 | `licenses` | `type` (trial / purchased / lifetime), `status` (active / expired / revoked), `activated_at`, `expires_at` |
 
+Trial length is per-Workspace, not a platform-wide constant: `products.is_trial_eligible`
+gates whether a Workspace offers a trial at all, and `products.trial_duration`/
+`trial_unit` (currently `'days'` only) set how long it runs — e.g. Notary is
+14 days, Cleaning is 7. `licenseService.activateTrial()` reads these off the
+product to compute `licenses.expires_at`; nothing in the app assumes a fixed
+duration. See `src/lib/trial.ts` for the shared formatting helpers every
+trial-length display reads through.
+
 A partial unique index enforces "one trial license per user, ever" at the
 database level, not only in the client. Row Level Security is enabled on
 every table: members can only read their own `users`/`licenses` rows and can

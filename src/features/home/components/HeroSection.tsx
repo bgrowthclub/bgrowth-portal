@@ -10,7 +10,7 @@ export function HeroSection() {
       />
       <div className="relative mx-auto max-w-4xl px-6 text-center">
         <span className="eyebrow inline-block rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary-200 animate-fade-in">
-          Free 14-Day Trial
+          Free Trial
         </span>
         <h1 className="mt-6 animate-fade-up text-4xl font-bold leading-tight sm:text-6xl">
           Try a BGrowth Workspace,{" "}

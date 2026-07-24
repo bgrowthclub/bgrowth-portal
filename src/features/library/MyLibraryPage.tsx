@@ -9,16 +9,20 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { FetchErrorState } from "@/components/ui/FetchErrorState";
 import { LibraryWorkspaceCard } from "./components/LibraryWorkspaceCard";
+import { formatTrialSentence } from "@/lib/trial";
+import type { TrialUnit } from "@/types/database";
 
 interface TrialActivatedState {
   justActivatedName?: string;
+  justActivatedTrialDuration?: number | null;
+  justActivatedTrialUnit?: TrialUnit;
 }
 
 export function MyLibraryPage() {
   const { user } = useAuth();
   const location = useLocation();
-  const [justActivatedName, setJustActivatedName] = useState(
-    () => (location.state as TrialActivatedState | null)?.justActivatedName,
+  const [activatedTrial, setActivatedTrial] = useState(
+    () => location.state as TrialActivatedState | null,
   );
 
   const {
@@ -55,14 +59,17 @@ export function MyLibraryPage() {
         </div>
       </div>
 
-      {justActivatedName && (
+      {activatedTrial?.justActivatedName && (
         <div className="card mt-6 flex items-center justify-between gap-4 border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-400/20 dark:bg-emerald-400/10">
           <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-            🎉 {justActivatedName} is now active — your 14-day trial has started.
+            🎉 {activatedTrial.justActivatedName} is now active
+            {activatedTrial.justActivatedTrialDuration != null && activatedTrial.justActivatedTrialUnit
+              ? ` — your ${formatTrialSentence(activatedTrial.justActivatedTrialDuration, activatedTrial.justActivatedTrialUnit)} trial has started.`
+              : " — your trial has started."}
           </p>
           <button
             type="button"
-            onClick={() => setJustActivatedName(undefined)}
+            onClick={() => setActivatedTrial(null)}
             aria-label="Dismiss"
             className="shrink-0 text-emerald-700/60 hover:text-emerald-700 dark:text-emerald-300/60 dark:hover:text-emerald-300"
           >
@@ -78,7 +85,7 @@ export function MyLibraryPage() {
               You haven&apos;t activated your free trial yet
             </h2>
             <p className="mt-1 text-sm text-navy-500 dark:text-white/60">
-              Pick one Workspace to try, completely free for 14 days.
+              Pick one Workspace to try, completely free.
             </p>
           </div>
           <Link to="/trial-selection">
