@@ -2,8 +2,16 @@
 -- (bgrowth-studio/src/configs/notary.config.ts and cleaning-moveout.config.ts).
 -- This is not demo/mock content — it's the actual published Workspace JSON,
 -- copied verbatim, so `content` matches exactly what Studio's own Checklist
--- Generator Engine renders. Run manually against your Supabase project
--- (SQL editor or `supabase db execute`) after applying the migrations.
+-- Generator Engine renders.
+--
+-- Published through the same publish_product() RPC the Publishing Engine's
+-- API route calls (see supabase/migrations/0003_publishing_engine.sql) —
+-- not a raw INSERT — so product_versions, product_destinations, and
+-- catalog_index all end up populated exactly as a real Studio publish would
+-- leave them. Safe to re-run: each run just creates a new version.
+--
+-- Run manually against your Supabase project (SQL editor or
+-- `supabase db execute`) after applying the migrations.
 
 insert into public.workspace_categories (name, slug, sort_order) values
   ('Business & Entrepreneurship', 'business-entrepreneurship', 0)
@@ -12,15 +20,15 @@ on conflict (slug) do nothing;
 -- ---------------------------------------------------------------------------
 -- Notary Appointment Workspace
 -- ---------------------------------------------------------------------------
-insert into public.products (slug, name, short_description, is_trial_eligible, is_published, category_id, content)
-select
-  'notary-appointment-workspace',
-  'Notary Appointment Workspace',
-  'The professional operating system that guides notaries before, during, and after every appointment.',
-  true,
-  true,
-  (select id from public.workspace_categories where slug = 'business-entrepreneurship'),
-  $json$
+select public.publish_product(
+  p_studio_product_id => 'notary-appointment-checklist',
+  p_slug => 'notary-appointment-workspace',
+  p_name => 'Notary Appointment Workspace',
+  p_short_description => 'The professional operating system that guides notaries before, during, and after every appointment.',
+  p_category_slug => 'business-entrepreneurship',
+  p_status => 'published',
+  p_published_by => 'seed-script',
+  p_content => $json$
   {
     "productId": "notary-appointment-checklist",
     "brand": {
@@ -197,22 +205,20 @@ select
     ]
   }
   $json$::jsonb
-where not exists (
-  select 1 from public.products where slug = 'notary-appointment-workspace'
 );
 
 -- ---------------------------------------------------------------------------
 -- Move-Out Cleaning Inspection Workspace
 -- ---------------------------------------------------------------------------
-insert into public.products (slug, name, short_description, is_trial_eligible, is_published, category_id, content)
-select
-  'cleaning-moveout-workspace',
-  'Move-Out Cleaning Inspection Workspace',
-  'Run every move-out cleaning job the same professional way, from client intake to final walkthrough.',
-  true,
-  true,
-  (select id from public.workspace_categories where slug = 'business-entrepreneurship'),
-  $json$
+select public.publish_product(
+  p_studio_product_id => 'cleaning-moveout-checklist',
+  p_slug => 'cleaning-moveout-workspace',
+  p_name => 'Move-Out Cleaning Inspection Workspace',
+  p_short_description => 'Run every move-out cleaning job the same professional way, from client intake to final walkthrough.',
+  p_category_slug => 'business-entrepreneurship',
+  p_status => 'published',
+  p_published_by => 'seed-script',
+  p_content => $json$
   {
     "productId": "cleaning-moveout-checklist",
     "brand": {
@@ -310,6 +316,4 @@ select
     ]
   }
   $json$::jsonb
-where not exists (
-  select 1 from public.products where slug = 'cleaning-moveout-workspace'
 );

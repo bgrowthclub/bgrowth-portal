@@ -93,41 +93,99 @@ renders that JSON generically:
   Portal styling change either.
 
 **Publishing a new Workspace is a data operation, not a code change:** once
-Studio writes a product's JSON into `products.content` (however that pipeline
-is ultimately wired — see below) and the row is marked `is_published`, it
-renders correctly in the Portal immediately.
+the BGrowth Publishing Engine (below) writes a product's JSON into
+`products.content` and the row's `status` is `published`, it renders
+correctly in the Portal immediately.
 
-**What isn't built yet:** an actual live sync between Studio (which persists
-its own products via a Google Apps Script proxy into Google Sheets, scoped by
-owner email — see `bgrowth-studio/src/lib/studioSync.ts`) and this Portal's
-`products.content` column. Today, publishing means copying a finished
-Studio config's JSON into that column by hand (see `supabase/seed.sql` for
-exactly that, done for the two real products that already exist). A real
-publish pipeline — Studio calling a Portal/Supabase endpoint, or a shared
-export step — is future work and deserves its own design pass rather than a
-guessed implementation bolted on here.
+## The BGrowth Publishing Engine
+
+`api/publishing-engine/publish.ts` is the one write path into the catalog —
+Studio (or any future authoring tool) never writes to Supabase directly.
+Designed to publish more than Workspaces eventually (Templates, Documents,
+PDFs, Courses, Calculators, AI Tools, Academy Lessons — `products.content_type`
+already lists them) to more than one destination eventually (Website, Etsy,
+Gumroad, Academy — `publication_destinations`, only `portal` is active
+today), through a workflow richer than Draft/Published (`ready_for_review`,
+`approved`, `archived` exist in the schema, unused today).
+
+**Flow:** Studio's frontend calls its own serverless proxy
+(`bgrowth-studio/api/publish.js`, never holding the shared secret in browser
+code) → that proxy forwards to `POST /api/publishing-engine/publish` with the
+secret attached server-side → this endpoint validates the payload (zod,
+`src/schemas/workspaceContent.schema.ts` — the same schema
+`WorkspaceRenderer`'s types derive from, so a malformed publish is rejected
+before it can ever break the renderer), uploads a cover image to Supabase
+Storage if one was sent, and calls the `publish_product()` Postgres function
+(`supabase/migrations/0003_publishing_engine.sql`) with a service-role
+client (`api/_lib/supabaseAdmin.ts`) — never the anon key.
+
+**`publish_product()` is one atomic transaction** that: upserts `products`
+(keyed on `studio_product_id`, not `slug`, so the slug can change without
+breaking republishing), inserts a `product_versions` snapshot, upserts the
+per-destination ledger in `product_destinations`, inserts `published_assets`
+rows (Workspace JSON + cover image today; `welcome_pdf`/`social_image`/etc.
+are already valid values needing no schema change when that day comes), and
+maintains `catalog_index` — a read-optimized table, GIN-indexed for full-text
+search, meant to become the foundation for search/featured/related/new-release
+rails. **Not yet wired into the Portal's own pages** — `productService` still
+reads `products` directly; pointing the storefront's search/rails at
+`catalog_index` instead is a follow-up, not done here.
+
+**The actual "never expose Draft products" guarantee is a database
+constraint, not application logic:** `products`' RLS policy is
+`using (status = 'published')`, and `product_versions` /
+`product_destinations` / `published_assets` have no public policy at all.
+A bug in Portal frontend code cannot leak a draft — there's no row to return.
+
+**Required environment variables for the Publishing Engine specifically**
+(server-side only, see `.env.example` — never prefix these with `VITE_`,
+that would ship them to the browser):
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `PUBLISHING_ENGINE_SECRET`.
+
+**What isn't built yet:**
+- Only `content_type = 'workspace'` has a validation schema — publishing any
+  other content type is rejected with a clear "not yet supported" error
+  rather than silently accepted as opaque JSON (`api/publishing-engine/publish.ts`).
+  Add a schema per type as each engine actually produces real products.
+- `catalog_index` is populated but not read by any Portal page yet.
+- No preview link for Draft/Ready-for-Review products, and no rollback UI
+  (though `product_versions` keeps full snapshots, so rollback is possible
+  to build on top of this without a schema change).
+- Auth between Studio and Portal is a single shared static secret, not
+  per-user permissions — reasonable today since Studio has no Supabase Auth
+  integration; revisit if that changes.
 
 ## Database schema
 
 | Table | Purpose |
 |---|---|
 | `workspace_categories` | Category taxonomy for Workspaces |
-| `products` | Workspace catalog (name, description, cover image, `app_url` — the target app a purchaser is routed to, `content` — the published Workspace JSON, see below) |
+| `products` | Catalog (name, description, cover image, `app_url`, `content`, `content_type`, `content_version`, `metadata`, `status`, `current_version`) |
+| `product_versions` | Full snapshot per publish — history/rollback, service-role only |
+| `publication_destinations` | Lookup: portal (active), website/etsy/gumroad/academy (not yet) |
+| `product_destinations` | Per-destination publish ledger — status/version/external id, service-role only |
+| `published_assets` | Generation ledger — Workspace JSON + cover image today, PDF/social/marketplace asset types already valid |
+| `catalog_index` | Read-optimized, search-indexed projection of published products — public read, not yet queried by the Portal's own pages |
 | `users` | Public profile row, 1:1 with `auth.users`, auto-created by a trigger on signup |
 | `licenses` | `type` (trial / purchased / lifetime), `status` (active / expired / revoked), `activated_at`, `expires_at` |
 
 A partial unique index enforces "one trial license per user, ever" at the
 database level, not only in the client. Row Level Security is enabled on
-every table: members can only read their own `users`/`licenses` rows, and can
-only insert a `trial`-type license for themselves — purchased/lifetime
-licenses are meant to be created by a trusted backend process (e.g. a payment
-webhook) once that flow is built, not by direct client insert.
+every table: members can only read their own `users`/`licenses` rows and can
+only insert a `trial`-type license for themselves (purchased/lifetime
+licenses are meant to be created by a trusted backend process once a real
+checkout exists); `products` is publicly readable only where
+`status = 'published'`; `product_versions`/`product_destinations`/
+`published_assets` have no public policy at all (service role only);
+`catalog_index` is publicly readable since, by construction, it only ever
+holds currently-published rows.
 
 ## Future integrations (not built yet, intentionally not hardcoded against)
 
-- **BGrowth Studio publish pipeline** — the renderer and schema exist (see
-  above); the actual sync that gets a newly-authored Studio product's JSON
-  into `products.content` automatically does not.
+- **Additional content types and destinations** — `content_type` and
+  `publication_destinations` already model Template/Document/PDF/Course/
+  Calculator/AI Tool/Academy Lesson and Website/Etsy/Gumroad/Academy; only
+  `workspace` → `portal` is actually implemented.
 - **Commerce / Payments** — `licenses.type = 'purchased' | 'lifetime'` and the
   "Buy" action in My Library are wired for this, pending a real checkout
   integration.

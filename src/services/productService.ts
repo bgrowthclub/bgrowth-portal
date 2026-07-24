@@ -11,7 +11,7 @@ export const productService = {
     const { data, error } = await supabase
       .from("products")
       .select("*")
-      .eq("is_published", true)
+      .eq("status", "published")
       .order("created_at", { ascending: true });
     if (error) throw error;
     return data ?? [];
@@ -21,7 +21,7 @@ export const productService = {
     const { data, error } = await supabase
       .from("products")
       .select("*")
-      .eq("is_published", true)
+      .eq("status", "published")
       .eq("is_trial_eligible", true)
       .order("created_at", { ascending: true });
     if (error) throw error;
