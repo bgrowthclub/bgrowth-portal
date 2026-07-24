@@ -30,16 +30,33 @@ alter table portal.products
   add column if not exists last_published_at timestamptz,
   add column if not exists last_published_by text;
 
-alter table portal.products
-  add constraint if not exists products_content_type_check
-  check (content_type in (
-    'workspace', 'template', 'document', 'pdf', 'course',
-    'calculator', 'ai_tool', 'academy_lesson'
-  ));
+-- PostgreSQL has no ADD CONSTRAINT IF NOT EXISTS (only ADD COLUMN gets that
+-- clause) — these check pg_constraint directly instead, so re-running this
+-- migration never errors on an already-added constraint.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'products_content_type_check' and conrelid = 'portal.products'::regclass
+  ) then
+    alter table portal.products
+      add constraint products_content_type_check
+      check (content_type in (
+        'workspace', 'template', 'document', 'pdf', 'course',
+        'calculator', 'ai_tool', 'academy_lesson'
+      ));
+  end if;
+end $$;
 
-alter table portal.products
-  add constraint if not exists products_status_check
-  check (status in ('draft', 'ready_for_review', 'approved', 'published', 'archived'));
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'products_status_check' and conrelid = 'portal.products'::regclass
+  ) then
+    alter table portal.products
+      add constraint products_status_check
+      check (status in ('draft', 'ready_for_review', 'approved', 'published', 'archived'));
+  end if;
+end $$;
 
 -- Migrate the old boolean gate, then retire it — status is now the single
 -- source of truth for publish state.
