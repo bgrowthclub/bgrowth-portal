@@ -6,6 +6,7 @@ import { productService } from "@/services/productService";
 import { licenseService } from "@/services/licenseService";
 import { Spinner } from "@/components/ui/Spinner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { FetchErrorState } from "@/components/ui/FetchErrorState";
 import { TrialWorkspaceCard } from "./components/TrialWorkspaceCard";
 import type { ProductRow } from "@/types/database";
 
@@ -15,17 +16,21 @@ export function TrialSelectionPage() {
   const [selected, setSelected] = useState<ProductRow | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [activationError, setActivationError] = useState<string | null>(null);
 
   const {
     data: hasUsedTrial,
     isLoading: isCheckingTrial,
+    error: trialCheckError,
+    refetch: refetchTrialCheck,
   } = useAsync(() => (user ? licenseService.hasUsedTrial(user.id) : Promise.resolve(false)), [user?.id]);
 
-  const { data: products, isLoading: isLoadingProducts } = useAsync(
-    () => productService.fetchTrialEligible(),
-    [],
-  );
+  const {
+    data: products,
+    isLoading: isLoadingProducts,
+    error: productsError,
+    refetch: refetchProducts,
+  } = useAsync(() => productService.fetchTrialEligible(), []);
 
   if (!isCheckingTrial && hasUsedTrial) {
     return <Navigate to="/library" replace />;
@@ -33,13 +38,13 @@ export function TrialSelectionPage() {
 
   async function handleConfirm() {
     if (!user || !selected) return;
-    setError(null);
+    setActivationError(null);
     setIsActivating(true);
     try {
       await licenseService.activateTrial(user.id, selected.id);
-      navigate("/library", { replace: true });
+      navigate("/library", { replace: true, state: { justActivatedName: selected.name } });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to activate your trial. Please try again.");
+      setActivationError(err instanceof Error ? err.message : "Unable to activate your trial. Please try again.");
       setIsConfirmOpen(false);
     } finally {
       setIsActivating(false);
@@ -47,6 +52,12 @@ export function TrialSelectionPage() {
   }
 
   const isLoading = isCheckingTrial || isLoadingProducts;
+  const fetchError = trialCheckError ?? productsError;
+
+  function handleRetry() {
+    refetchTrialCheck();
+    refetchProducts();
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-16">
@@ -63,9 +74,9 @@ export function TrialSelectionPage() {
         </p>
       </div>
 
-      {error && (
+      {activationError && (
         <p role="alert" className="mx-auto mt-8 max-w-md rounded-lg bg-red-50 px-4 py-2.5 text-center text-sm text-red-600 dark:bg-red-400/10 dark:text-red-300">
-          {error}
+          {activationError}
         </p>
       )}
 
@@ -75,7 +86,19 @@ export function TrialSelectionPage() {
         </div>
       )}
 
-      {!isLoading && products && (
+      {!isLoading && fetchError && (
+        <div className="mx-auto mt-12 max-w-md">
+          <FetchErrorState message="Couldn't load Workspaces right now." onRetry={handleRetry} />
+        </div>
+      )}
+
+      {!isLoading && !fetchError && products && products.length === 0 && (
+        <p className="mt-12 text-center text-sm text-navy-400 dark:text-white/40">
+          New Workspaces are on the way — check back soon.
+        </p>
+      )}
+
+      {!isLoading && !fetchError && products && products.length > 0 && (
         <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {products.map((product) => (
             <TrialWorkspaceCard

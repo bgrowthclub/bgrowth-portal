@@ -3,6 +3,7 @@ import type { WorkspaceContent, WorkspaceData } from "@/types/workspaceContent";
 import { applyWorkspaceTheme } from "@/lib/workspaceTheme";
 import { useWorkspaceProgress } from "../hooks/useWorkspaceProgress";
 import { WorkspaceAccordion } from "./WorkspaceAccordion";
+import { WorkspaceCompletionPanel } from "./WorkspaceCompletionPanel";
 
 interface WorkspaceRendererProps {
   content: WorkspaceContent;
@@ -19,6 +20,7 @@ interface WorkspaceRendererProps {
 export function WorkspaceRenderer({ content, initialData }: WorkspaceRendererProps) {
   const [data, setData] = useState<WorkspaceData>(initialData ?? {});
   const [activeId, setActiveId] = useState(content.sections[0]?.id ?? "");
+  const [hasReachedEnd, setHasReachedEnd] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const progress = useWorkspaceProgress(content, data);
@@ -35,7 +37,11 @@ export function WorkspaceRenderer({ content, initialData }: WorkspaceRendererPro
     const index = content.sections.findIndex((section) => section.id === sectionId);
     const next = content.sections[index + 1];
     setActiveId(next ? next.id : sectionId);
-    if (next) rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (next) {
+      rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      setHasReachedEnd(true);
+    }
   }
 
   return (
@@ -57,6 +63,13 @@ export function WorkspaceRenderer({ content, initialData }: WorkspaceRendererPro
           <span className="text-sm font-semibold text-navy-700 dark:text-white/80">{progress.percent}%</span>
         </div>
       </div>
+
+      {hasReachedEnd && (
+        <WorkspaceCompletionPanel
+          workspaceName={content.brand.name}
+          onReviewSections={() => setHasReachedEnd(false)}
+        />
+      )}
 
       <WorkspaceAccordion
         content={content}
