@@ -99,61 +99,14 @@ correctly in the Portal immediately.
 
 ## The BGrowth Publishing Engine
 
-`api/publishing-engine/publish.ts` is the one write path into the catalog —
-Studio (or any future authoring tool) never writes to Supabase directly.
-Designed to publish more than Workspaces eventually (Templates, Documents,
-PDFs, Courses, Calculators, AI Tools, Academy Lessons — `products.content_type`
-already lists them) to more than one destination eventually (Website, Etsy,
-Gumroad, Academy — `publication_destinations`, only `portal` is active
-today), through a workflow richer than Draft/Published (`ready_for_review`,
-`approved`, `archived` exist in the schema, unused today).
+The one write path into the catalog — see **[PUBLISHING_ENGINE.md](./PUBLISHING_ENGINE.md)**
+for the full architecture, governing principles, and extension points. It's
+documented as its own core platform service, not a Portal feature, even
+though its code currently lives in this repo (`api/publishing-engine/`).
 
-**Flow:** Studio's frontend calls its own serverless proxy
-(`bgrowth-studio/api/publish.js`, never holding the shared secret in browser
-code) → that proxy forwards to `POST /api/publishing-engine/publish` with the
-secret attached server-side → this endpoint validates the payload (zod,
-`src/schemas/workspaceContent.schema.ts` — the same schema
-`WorkspaceRenderer`'s types derive from, so a malformed publish is rejected
-before it can ever break the renderer), uploads a cover image to Supabase
-Storage if one was sent, and calls the `publish_product()` Postgres function
-(`supabase/migrations/0003_publishing_engine.sql`) with a service-role
-client (`api/_lib/supabaseAdmin.ts`) — never the anon key.
-
-**`publish_product()` is one atomic transaction** that: upserts `products`
-(keyed on `studio_product_id`, not `slug`, so the slug can change without
-breaking republishing), inserts a `product_versions` snapshot, upserts the
-per-destination ledger in `product_destinations`, inserts `published_assets`
-rows (Workspace JSON + cover image today; `welcome_pdf`/`social_image`/etc.
-are already valid values needing no schema change when that day comes), and
-maintains `catalog_index` — a read-optimized table, GIN-indexed for full-text
-search, meant to become the foundation for search/featured/related/new-release
-rails. **Not yet wired into the Portal's own pages** — `productService` still
-reads `products` directly; pointing the storefront's search/rails at
-`catalog_index` instead is a follow-up, not done here.
-
-**The actual "never expose Draft products" guarantee is a database
-constraint, not application logic:** `products`' RLS policy is
-`using (status = 'published')`, and `product_versions` /
-`product_destinations` / `published_assets` have no public policy at all.
-A bug in Portal frontend code cannot leak a draft — there's no row to return.
-
-**Required environment variables for the Publishing Engine specifically**
-(server-side only, see `.env.example` — never prefix these with `VITE_`,
-that would ship them to the browser):
+Required environment variables (server-side only — never prefix these with
+`VITE_`, that would ship them to the browser; see `.env.example`):
 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `PUBLISHING_ENGINE_SECRET`.
-
-**What isn't built yet:**
-- Only `content_type = 'workspace'` has a validation schema — publishing any
-  other content type is rejected with a clear "not yet supported" error
-  rather than silently accepted as opaque JSON (`api/publishing-engine/publish.ts`).
-  Add a schema per type as each engine actually produces real products.
-- `catalog_index` is populated but not read by any Portal page yet.
-- No preview link for Draft/Ready-for-Review products, and no rollback UI
-  (though `product_versions` keeps full snapshots, so rollback is possible
-  to build on top of this without a schema change).
-- Auth between Studio and Portal is a single shared static secret, not
-  per-user permissions — reasonable today since Studio has no Supabase Auth
-  integration; revisit if that changes.
 
 ## Database schema
 
