@@ -67,7 +67,7 @@ that already exist. That step is Phase 2b, after the migrations run.
 
 Supabase's **SQL Editor** (left sidebar) is the simplest path — no CLI
 setup needed. Run each file's contents as its own query, top to bottom,
-**in this exact order** (each depends on the one before it). All four are
+**in this exact order** (each depends on the one before it). All six are
 purely additive: they only ever `create schema if not exists portal` and
 `create table`/`create function` inside it — none of them read, alter, or
 drop anything in `public` or any LMS schema.
@@ -94,8 +94,17 @@ drop anything in `public` or any LMS schema.
    `portal-product-assets` Storage bucket and its public-read policy (named
    with the `portal-` prefix because Storage bucket ids are one global
    namespace across the whole project, unlike schema-scoped tables).
+5. `supabase/migrations/0005_workspace_trial_config.sql` — adds
+   `portal.products.trial_duration`/`trial_unit` (per-Workspace trial
+   length instead of a platform-wide constant) and republishes
+   `publish_product()` with the two new trailing parameters.
+6. `supabase/migrations/0006_trial_duration_upsert_safety.sql` — republishes
+   `publish_product()` again so a publish that omits `trial_duration` keeps
+   the product's existing value instead of clearing it (mirrors how
+   `cover_image_url` already behaves) — protects against Studio's builder
+   UI not yet persisting trial config across a reopened-template edit.
 
-**After running all four, verify in the SQL Editor:**
+**After running all six, verify in the SQL Editor:**
 ```sql
 -- Should return 7 tables, all in the portal schema
 select table_name from information_schema.tables
@@ -174,6 +183,9 @@ select slug, status, current_version from portal.products;
 
 select count(*) from portal.catalog_index;
 -- 2
+
+select slug, is_trial_eligible, trial_duration, trial_unit from portal.products;
+-- Notary: true / 14 / days — Cleaning: true / 7 / days (two different lengths, proving this is per-Workspace, not a constant)
 ```
 Safe to re-run — each run just publishes a new version (`current_version`
 increments); it won't create duplicate product rows, since it upserts on

@@ -79,7 +79,8 @@ bundles or calls.
 | Content type | `workspace` only — validated against `src/schemas/workspaceContent.schema.ts` |
 | Destination | `portal` only — `website`/`etsy`/`gumroad`/`academy` exist as inactive rows in `publication_destinations` |
 | Workflow states | `draft` → `published` only — `ready_for_review`/`approved`/`archived` are valid but unused |
-| Assets | `workspace_json` (always) + `cover_image` (if provided) — `thumbnail`/`welcome_pdf`/`product_pdf`/`social_image`/`marketplace_image`/`marketing_material` are valid `asset_type` values, none generated yet |
+| Assets | `workspace_json` (always) + `cover_image` (sent from Studio's Template Settings image picker, compressed client-side) — `thumbnail`/`welcome_pdf`/`product_pdf`/`social_image`/`marketplace_image`/`marketing_material` are valid `asset_type` values, none generated yet |
+| Trial configuration | Per-Workspace, set from Studio's Template Settings (`isTrialEligible`, `trialDuration`, `trialUnit`) — see `supabase/migrations/0005_workspace_trial_config.sql`. Studio's unit picker also shows Weeks/Months/Hours for a future release, but publishing with anything other than `days` is rejected client-side today, since only `days` has a Portal-side implementation |
 | Catalog index | Populated on every publish; not yet read by any Portal page |
 | Callers | `bgrowth-studio`'s Checklist Builder ("Publish to Portal" button) |
 
