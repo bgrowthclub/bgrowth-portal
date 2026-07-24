@@ -18,6 +18,7 @@ on conflict (id) do nothing;
 -- performed exclusively by the Publishing Engine's API route using the
 -- service role key, which bypasses RLS — no insert/update/delete policy is
 -- granted to anon/authenticated here.
+drop policy if exists "Anyone can read portal product assets" on storage.objects;
 create policy "Anyone can read portal product assets"
   on storage.objects for select
   using (bucket_id = 'portal-product-assets');

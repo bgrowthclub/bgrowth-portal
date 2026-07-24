@@ -194,6 +194,7 @@ create table if not exists portal.catalog_index (
 
 alter table portal.catalog_index enable row level security;
 
+drop policy if exists "Anyone can read the catalog index" on portal.catalog_index;
 create policy "Anyone can read the catalog index"
   on portal.catalog_index for select
   using (true);
