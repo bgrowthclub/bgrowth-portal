@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../../src/types/database";
 
-const BUCKET = "product-assets";
+// Must match the bucket created in supabase/migrations/0004_publishing_engine_storage.sql —
+// renamed to portal-product-assets when this database became shared with the
+// BGrowth Academy LMS (bucket ids are a global namespace, not schema-scoped).
+const BUCKET = "portal-product-assets";
 
 interface UploadInput {
   studioProductId: string;

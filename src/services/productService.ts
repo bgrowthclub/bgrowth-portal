@@ -17,12 +17,20 @@ export const productService = {
     return data ?? [];
   },
 
+  /**
+   * Trial-eligible AND actually configured with a length — a product can be
+   * marked is_trial_eligible = true by a Studio publish that omitted
+   * trialDuration (not yet possible from Studio's UI as of this writing),
+   * and offering that product here would let a member pick a trial
+   * licenseService.activateTrial() can't actually compute an expiry for.
+   */
   async fetchTrialEligible(): Promise<ProductRow[]> {
     const { data, error } = await supabase
       .from("products")
       .select("*")
       .eq("status", "published")
       .eq("is_trial_eligible", true)
+      .not("trial_duration", "is", null)
       .order("created_at", { ascending: true });
     if (error) throw error;
     return data ?? [];
