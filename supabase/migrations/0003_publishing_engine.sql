@@ -59,9 +59,18 @@ begin
 end $$;
 
 -- Migrate the old boolean gate, then retire it — status is now the single
--- source of truth for publish state.
-update portal.products set status = 'published' where is_published = true;
-update portal.products set status = 'draft' where is_published = false;
+-- source of truth for publish state. Guarded on the column still existing
+-- so this is safe to run whether or not a prior attempt already dropped it.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'portal' and table_name = 'products' and column_name = 'is_published'
+  ) then
+    update portal.products set status = 'published' where is_published = true;
+    update portal.products set status = 'draft' where is_published = false;
+  end if;
+end $$;
 
 drop policy if exists "Anyone can read published products" on portal.products;
 alter table portal.products drop column if exists is_published;
