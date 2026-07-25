@@ -27,6 +27,14 @@ export function getSupabaseAdmin() {
     );
   }
 
+  // Confirms which env var this client was actually built from, without ever
+  // logging the key itself — only its length, which is enough to catch e.g.
+  // an anon key accidentally assigned to SUPABASE_SERVICE_ROLE_KEY (the two
+  // differ in length/JWT payload) without exposing anything secret.
+  console.log(
+    `[supabaseAdmin] client built from SUPABASE_SERVICE_ROLE_KEY (length ${serviceRoleKey.length}), schema "portal"`,
+  );
+
   return createClient<Database>(url, serviceRoleKey, {
     db: { schema: "portal" },
     auth: { persistSession: false, autoRefreshToken: false },
