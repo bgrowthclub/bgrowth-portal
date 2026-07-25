@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
-import { getSupabaseAdmin } from "../_lib/supabaseAdmin";
-import { requirePublishingEngineAuth } from "../_lib/requirePublishingEngineAuth";
-import { uploadAssetToStorage } from "../_lib/uploadAsset";
-import { workspaceContentSchema } from "../../src/schemas/workspaceContent.schema";
+import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { requirePublishingEngineAuth } from "../_lib/requirePublishingEngineAuth.js";
+import { uploadAssetToStorage } from "../_lib/uploadAsset.js";
+import { workspaceContentSchema } from "../../src/schemas/workspaceContent.schema.js";
 import type { AssetType, ContentType, PublicationDestinationKey, PublicationStatus } from "../../src/types/database";
 
 export const config = {
