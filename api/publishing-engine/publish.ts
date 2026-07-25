@@ -78,30 +78,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Method not allowed" });
-  if (!requirePublishingEngineAuth(req, res)) return;
 
-  const parsed = publishRequestSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(422).json({ ok: false, error: "Invalid publish payload", issues: parsed.error.issues });
-  }
-  const payload = parsed.data;
-
-  const contentSchema = contentSchemasByType[payload.contentType];
-  if (!contentSchema) {
-    return res.status(501).json({
-      ok: false,
-      error: `content_type "${payload.contentType}" is not yet supported by the Publishing Engine — no validation schema exists for it.`,
-    });
-  }
-
-  const contentResult = contentSchema.safeParse(payload.content);
-  if (!contentResult.success) {
-    return res.status(422).json({ ok: false, error: "Invalid content for contentType", issues: contentResult.error.issues });
-  }
-
-  const supabase = getSupabaseAdmin();
-
+  // Everything from here down is wrapped in one try/catch — including
+  // getSupabaseAdmin() below, which throws a plain Error if
+  // SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY aren't configured on this
+  // deployment. That throw used to sit outside this block, which crashed
+  // the whole function invocation (Vercel's FUNCTION_INVOCATION_FAILED)
+  // instead of returning a normal JSON error response.
   try {
+    if (!requirePublishingEngineAuth(req, res)) return;
+
+    const parsed = publishRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(422).json({ ok: false, error: "Invalid publish payload", issues: parsed.error.issues });
+    }
+    const payload = parsed.data;
+
+    const contentSchema = contentSchemasByType[payload.contentType];
+    if (!contentSchema) {
+      return res.status(501).json({
+        ok: false,
+        error: `content_type "${payload.contentType}" is not yet supported by the Publishing Engine — no validation schema exists for it.`,
+      });
+    }
+
+    const contentResult = contentSchema.safeParse(payload.content);
+    if (!contentResult.success) {
+      return res.status(422).json({ ok: false, error: "Invalid content for contentType", issues: contentResult.error.issues });
+    }
+
+    const supabase = getSupabaseAdmin();
+
     let coverImageUrl: string | null = null;
     if (payload.coverImage) {
       coverImageUrl =
@@ -167,6 +174,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     });
   } catch (err) {
-    return res.status(500).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
+    // Logged server-side unconditionally (visible in Vercel's function logs)
+    // regardless of what the response body includes.
+    console.error("[publishing-engine/publish] unhandled error:", err);
+
+    const isDev = process.env.NODE_ENV !== "production";
+    const message = err instanceof Error ? err.message : String(err);
+
+    return res.status(500).json({
+      ok: false,
+      error: message,
+      ...(isDev && err instanceof Error && err.stack ? { stack: err.stack } : {}),
+    });
   }
 }
