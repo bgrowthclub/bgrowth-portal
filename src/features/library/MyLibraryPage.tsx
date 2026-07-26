@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { FetchErrorState } from "@/components/ui/FetchErrorState";
 import { LibraryWorkspaceCard } from "./components/LibraryWorkspaceCard";
+import { SavedChecklistsPanel } from "./components/SavedChecklistsPanel";
 
 export function MyLibraryPage() {
   const { user } = useAuth();
@@ -120,16 +121,32 @@ export function MyLibraryPage() {
       )}
 
       {!isLoading && !error && workspaces && user && (
-        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {workspaces.map((workspace) => (
-            <LibraryWorkspaceCard
-              key={workspace.id}
-              workspace={workspace}
-              userId={user.id}
-              displayName={(user.user_metadata?.full_name as string | undefined) ?? user.email ?? "A member"}
-              instances={(instances ?? []).filter((instance) => instance.product_id === workspace.id)}
-            />
-          ))}
+        <div className="mt-8 flex flex-col gap-8">
+          {workspaces.map((workspace) => {
+            const canOpen = workspace.accessState === "trial" || workspace.accessState === "purchased";
+            return (
+              // 40/60 on desktop, 45/55 on tablet, stacked (card first) on
+              // mobile. When the Workspace can't be opened (expired trial,
+              // no active license), there's no Saved Checklists panel to
+              // pair it with — the card alone occupies just the first
+              // column's width via grid auto-placement, rather than
+              // stretching to the full row.
+              <div key={workspace.id} className="grid grid-cols-1 gap-6 md:grid-cols-[45%_55%] lg:grid-cols-[40%_60%]">
+                <LibraryWorkspaceCard
+                  workspace={workspace}
+                  userId={user.id}
+                  displayName={(user.user_metadata?.full_name as string | undefined) ?? user.email ?? "A member"}
+                />
+                {canOpen && (
+                  <SavedChecklistsPanel
+                    workspace={workspace}
+                    userId={user.id}
+                    instances={(instances ?? []).filter((instance) => instance.product_id === workspace.id)}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
