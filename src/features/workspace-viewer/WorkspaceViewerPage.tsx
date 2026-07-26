@@ -11,6 +11,24 @@ import { WorkspaceViewerLayout } from "./components/WorkspaceViewerLayout";
 import { WorkspaceRenderer } from "./components/WorkspaceRenderer";
 import type { WorkspaceData } from "@/types/workspaceContent";
 
+// TEMP DIAGNOSTIC — JSON.stringify comparison doesn't account for key
+// order, which Postgres/PostgREST doesn't preserve, so it was flagging
+// semantically-identical objects as a MISMATCH. This compares structurally
+// instead. Deleted along with the rest of this instrumentation once
+// persistence is confirmed end to end.
+function deepEqualIgnoringKeyOrder(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  const aKeys = Object.keys(a as Record<string, unknown>).sort();
+  const bKeys = Object.keys(b as Record<string, unknown>).sort();
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every(
+    (key, i) =>
+      key === bKeys[i] &&
+      deepEqualIgnoringKeyOrder((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]),
+  );
+}
+
 export function WorkspaceViewerPage() {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
@@ -94,18 +112,16 @@ export function WorkspaceViewerPage() {
     const reloaded = await workspaceInstanceService.fetchById(instance.id);
     console.log("[DIAGNOSTIC handleSaveInstance] data from a fresh fetchById (after save):", JSON.stringify(reloaded?.data));
 
-    const beforeJson = JSON.stringify(data);
-    const afterJson = JSON.stringify(reloaded?.data);
-    if (beforeJson !== afterJson) {
+    if (!deepEqualIgnoringKeyOrder(data, reloaded?.data ?? {})) {
       console.error(
-        "[DIAGNOSTIC handleSaveInstance] MISMATCH — the data sent to saveData does not match what fetchById " +
-          "reads back immediately after. before:",
-        beforeJson,
-        "after:",
-        afterJson,
+        "[DIAGNOSTIC handleSaveInstance] MISMATCH — the data sent to saveData is not structurally equal to what " +
+          "fetchById reads back immediately after. sent:",
+        JSON.stringify(data),
+        "read back:",
+        JSON.stringify(reloaded?.data),
       );
     } else {
-      console.log("[DIAGNOSTIC handleSaveInstance] MATCH — sent data and freshly-fetched data are identical.");
+      console.log("[DIAGNOSTIC handleSaveInstance] MATCH — sent data and freshly-fetched data are structurally identical.");
     }
   }
 
