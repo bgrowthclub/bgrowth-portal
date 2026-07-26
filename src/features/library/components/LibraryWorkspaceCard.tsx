@@ -51,6 +51,21 @@ export function LibraryWorkspaceCard({ workspace, userId, displayName, instances
     }
   }, [isExpired, workspace.license, userId, workspace.id]);
 
+  // TEMP DIAGNOSTIC — tracing notary-commission-workspace. Logs exactly what
+  // this card was handed for this Workspace, straight from the live query
+  // MyLibraryPage ran. Remove once confirmed.
+  useEffect(() => {
+    console.log("[DIAGNOSTIC LibraryWorkspaceCard] workspace:", JSON.stringify(workspace));
+    console.log("[DIAGNOSTIC LibraryWorkspaceCard] key identity fields:", {
+      slug: workspace.slug,
+      id: workspace.id,
+      studio_product_id: workspace.studio_product_id,
+      current_version: workspace.current_version,
+      name: workspace.name,
+      accessState: workspace.accessState,
+    });
+  }, [workspace]);
+
   async function handleCreateInstance(label: string) {
     setIsCreating(true);
     setCreateError(null);
