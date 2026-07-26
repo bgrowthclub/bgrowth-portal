@@ -80,9 +80,33 @@ export function WorkspaceViewerPage() {
     return <Navigate to="/library" replace />;
   }
 
+  // TEMPORARY DIAGNOSTIC INSTRUMENTATION — tracing the "partial saves lost"
+  // report end to end: what WorkspaceRenderer hands us, what saveData does
+  // with it, and what a fresh fetchById sees immediately after. Remove once
+  // the root cause is confirmed; this is not the permanent fix.
   async function handleSaveInstance(data: WorkspaceData) {
     if (!instance) return;
+    console.log("[DIAGNOSTIC handleSaveInstance] instance.id:", instance.id);
+    console.log("[DIAGNOSTIC handleSaveInstance] data received from WorkspaceRenderer (before save):", JSON.stringify(data));
+
     await workspaceInstanceService.saveData(instance.id, data);
+
+    const reloaded = await workspaceInstanceService.fetchById(instance.id);
+    console.log("[DIAGNOSTIC handleSaveInstance] data from a fresh fetchById (after save):", JSON.stringify(reloaded?.data));
+
+    const beforeJson = JSON.stringify(data);
+    const afterJson = JSON.stringify(reloaded?.data);
+    if (beforeJson !== afterJson) {
+      console.error(
+        "[DIAGNOSTIC handleSaveInstance] MISMATCH — the data sent to saveData does not match what fetchById " +
+          "reads back immediately after. before:",
+        beforeJson,
+        "after:",
+        afterJson,
+      );
+    } else {
+      console.log("[DIAGNOSTIC handleSaveInstance] MATCH — sent data and freshly-fetched data are identical.");
+    }
   }
 
   return (
