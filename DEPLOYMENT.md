@@ -124,8 +124,8 @@ them read, alter, or drop anything in `public` or any LMS schema.
 
 **After running all nine, verify in the SQL Editor:**
 ```sql
--- Should return 11 tables, all in the portal schema
-select table_name from information_schema.tables
+-- Should return 12 rows: 11 base tables plus the product_review_summary view
+select table_name, table_type from information_schema.tables
 where table_schema = 'portal' order by table_name;
 
 -- Confirms the LMS schemas are untouched and still present alongside portal
