@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { ClipboardList, Plus } from "lucide-react";
 import type { WorkspaceWithAccess } from "@/types/workspace";
 import type { WorkspaceInstanceRow } from "@/types/database";
 import { Button } from "@/components/ui/Button";
@@ -45,7 +45,10 @@ export function SavedChecklistsPanel({ workspace, userId, instances }: SavedChec
   return (
     <div className="card flex h-full flex-col gap-5 p-6">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold text-navy-900 dark:text-white">Saved Checklists</h3>
+        <h3 className="text-lg font-semibold text-navy-900 dark:text-white">
+          Saved Checklists
+          <span className="ml-1.5 font-normal text-navy-400 dark:text-white/40">({instances.length})</span>
+        </h3>
         <Button size="sm" onClick={() => setIsNaming(true)}>
           <Plus className="h-4 w-4" />
           New Checklist
@@ -59,7 +62,7 @@ export function SavedChecklistsPanel({ workspace, userId, instances }: SavedChec
       )}
 
       {instances.length > 0 ? (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {instances.map((instance) => (
             <SavedChecklistCard
               key={instance.id}
@@ -70,11 +73,20 @@ export function SavedChecklistsPanel({ workspace, userId, instances }: SavedChec
           ))}
         </div>
       ) : (
-        <div className="flex flex-1 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-navy-200 py-12 text-center dark:border-white/15">
-          <p className="text-sm font-medium text-navy-400 dark:text-white/40">No saved checklists yet.</p>
-          <p className="text-xs text-navy-300 dark:text-white/30">
-            Start one to save your progress for a specific client or job.
-          </p>
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-navy-200 px-6 py-12 text-center dark:border-white/15">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <ClipboardList className="h-6 w-6" />
+          </span>
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-navy-500 dark:text-white/60">No saved checklists yet.</p>
+            <p className="text-xs text-navy-400 dark:text-white/40">
+              Create your first checklist to start tracking your progress.
+            </p>
+          </div>
+          <Button size="sm" onClick={() => setIsNaming(true)}>
+            <Plus className="h-4 w-4" />
+            New Checklist
+          </Button>
         </div>
       )}
 
