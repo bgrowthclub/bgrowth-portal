@@ -41,7 +41,12 @@ export function MyLibraryPage() {
   const isLoading = isLoadingProducts || isLoadingLicenses;
   const error = productsError ?? licensesError;
   const hasAnyLicense = (licenses?.length ?? 0) > 0;
-  const workspaces = products && licenses ? attachAccessState(products, licenses) : null;
+  // Only Workspaces the member actually owns — locked (never activated/bought)
+  // Workspaces live in Browse Workspaces instead, so a member with zero
+  // licenses sees an empty Library, not the full catalog with "Locked" badges.
+  const workspaces = products && licenses
+    ? attachAccessState(products, licenses).filter((w) => w.accessState !== "locked")
+    : null;
 
   function handleRetry() {
     refetchProducts();
@@ -54,9 +59,12 @@ export function MyLibraryPage() {
         <div>
           <h1 className="text-2xl font-bold text-navy-900 dark:text-white">My Library</h1>
           <p className="mt-1 text-sm text-navy-500 dark:text-white/60">
-            Every BGrowth Workspace — trial, purchased, or available to buy.
+            The Workspaces you're trialing or have purchased.
           </p>
         </div>
+        <Link to="/browse" className="text-sm font-semibold text-primary hover:underline">
+          Browse Workspaces →
+        </Link>
       </div>
 
       {activatedTrial?.justActivatedName && (

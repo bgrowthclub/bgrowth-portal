@@ -20,6 +20,9 @@ export function AppHeader() {
           <Link to="/library" className="transition-colors hover:text-primary">
             My Library
           </Link>
+          <Link to="/browse" className="transition-colors hover:text-primary">
+            Browse Workspaces
+          </Link>
           <Link to="/profile" className="transition-colors hover:text-primary">
             Profile
           </Link>

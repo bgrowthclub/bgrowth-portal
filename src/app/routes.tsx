@@ -14,6 +14,7 @@ import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
 import { VerifyEmailPage } from "@/features/auth/VerifyEmailPage";
 import { TrialSelectionPage } from "@/features/trial/TrialSelectionPage";
 import { MyLibraryPage } from "@/features/library/MyLibraryPage";
+import { MarketplacePage } from "@/features/marketplace/MarketplacePage";
 import { ProfilePage } from "@/features/profile/ProfilePage";
 import { NotFoundPage } from "./NotFoundPage";
 
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
         children: [
           { path: "/trial-selection", element: <TrialSelectionPage /> },
           { path: "/library", element: <MyLibraryPage /> },
+          { path: "/browse", element: <MarketplacePage /> },
           { path: "/profile", element: <ProfilePage /> },
         ],
       },

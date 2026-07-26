@@ -43,7 +43,13 @@ src/
     auth/         Sign In / Sign Up / Forgot & Reset Password / Verify Email
     home/         Landing page sections
     trial/        Trial Selection (the one-time free trial activation flow)
-    library/      My Library (owned/locked/trial/purchased/expired Workspaces)
+    library/      My Library — only Workspaces the member owns (trial/
+                  purchased/expired); browsing the full catalog lives in
+                  marketplace/ instead, so Library stays empty until a
+                  trial is activated
+    marketplace/  Browse Workspaces — the full published catalog, with
+                  Open/Start Free Trial/Buy depending on ownership + trial
+                  eligibility
     workspace-viewer/  WorkspaceRenderer — generic renderer for any published
                        Workspace JSON (see below), plus the access-gated
                        Viewer page/layout around it

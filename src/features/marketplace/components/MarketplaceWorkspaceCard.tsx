@@ -4,14 +4,15 @@ import { AccessStateBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { getCheckoutUrl } from "@/lib/checkout";
 
-function formatExpiry(expiresAt: string | null): string | null {
-  if (!expiresAt) return null;
-  return new Date(expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+interface MarketplaceWorkspaceCardProps {
+  workspace: WorkspaceWithAccess;
+  /** Whether this member has ever activated a trial (any Workspace) — gates whether a not-yet-owned, trial-eligible Workspace still offers "Start Free Trial" here. */
+  hasUsedTrial: boolean;
 }
 
-export function LibraryWorkspaceCard({ workspace }: { workspace: WorkspaceWithAccess }) {
-  const canOpen = workspace.accessState === "trial" || workspace.accessState === "purchased";
-  const expiry = workspace.accessState === "trial" ? formatExpiry(workspace.license?.expires_at ?? null) : null;
+export function MarketplaceWorkspaceCard({ workspace, hasUsedTrial }: MarketplaceWorkspaceCardProps) {
+  const isOwned = workspace.accessState === "trial" || workspace.accessState === "purchased";
+  const canStartTrial = !isOwned && workspace.is_trial_eligible && !hasUsedTrial;
   const checkoutUrl = getCheckoutUrl(workspace.slug);
 
   return (
@@ -33,16 +34,17 @@ export function LibraryWorkspaceCard({ workspace }: { workspace: WorkspaceWithAc
         <p className="mt-2 line-clamp-2 text-sm text-navy-500 dark:text-white/60">
           {workspace.short_description}
         </p>
-        {expiry && (
-          <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-300">
-            Trial ends {expiry}
-          </p>
-        )}
         <div className="mt-5">
-          {canOpen ? (
+          {isOwned ? (
             <Link to={`/workspace/${workspace.slug}`}>
               <Button size="sm" className="w-full">
                 Open Workspace
+              </Button>
+            </Link>
+          ) : canStartTrial ? (
+            <Link to="/trial-selection">
+              <Button size="sm" className="w-full">
+                Start Free Trial
               </Button>
             </Link>
           ) : checkoutUrl ? (

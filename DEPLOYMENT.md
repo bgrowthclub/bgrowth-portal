@@ -242,7 +242,15 @@ increments); it won't create duplicate product rows, since it upserts on
 Now that Portal's real URL exists (Phase 5), go back to Supabase:
 
 1. **Authentication → URL Configuration**:
-   - **Site URL**: your Portal production URL.
+   - **Site URL**: your Portal production URL — **not** `http://localhost:5173`.
+     This is the single most common cause of "confirmation emails link to
+     localhost in production": `authService.ts` already passes the correct
+     dynamic `emailRedirectTo`/`redirectTo` (built from `window.location.origin`
+     at request time — there is no hardcoded localhost anywhere in the app
+     code), but if the requested redirect isn't on the allowlist below,
+     Supabase silently falls back to whatever **Site URL** is set to. If that
+     field was never updated from its project-creation default, every email
+     goes out pointing at localhost regardless of what the app sent.
    - **Redirect URLs**: add both
      `https://<your-portal-url>/verify-email` and
      `https://<your-portal-url>/reset-password` — these are exactly the
@@ -256,9 +264,14 @@ Now that Portal's real URL exists (Phase 5), go back to Supabase:
    required. If it's off, signup will skip straight to a confirmed
    session and Verify Email becomes unreachable/unnecessary — fine
    functionally, but not what the built flow assumes.
-3. **Authentication → Emails**: the default Supabase templates work for
-   an MVP launch. If you want branded emails, edit the "Confirm signup"
-   and "Reset password" templates here — not required to launch.
+3. **Authentication → Emails**: paste `supabase/email-templates/confirm-signup.html`
+   into the "Confirm signup" template's message body, and
+   `supabase/email-templates/reset-password.html` into "Reset Password" —
+   both use the real BGrowth logo/brand color instead of Supabase's generic
+   default styling. Before pasting, replace `YOUR_PORTAL_DOMAIN` in each file
+   with the real production Portal domain (e.g. `app.bgrowthclub.com`) —
+   email clients need an absolute image URL, a relative `/logo.png` won't
+   resolve from an inbox.
 4. **Production email deliverability** (flagged in
    `POST_LAUNCH_IMPROVEMENTS.md`, worth a decision now rather than after
    users start signing up): Supabase's built-in email sending has low
