@@ -25,15 +25,19 @@ export function MyLibraryPage() {
     error: licensesError,
     refetch: refetchLicenses,
   } = useAsync(() => (user ? licenseService.fetchForUser(user.id) : Promise.resolve([])), [user?.id]);
-  const {
-    data: instances,
-    isLoading: isLoadingInstances,
-    error: instancesError,
-    refetch: refetchInstances,
-  } = useAsync(() => (user ? workspaceInstanceService.listForUser(user.id) : Promise.resolve([])), [user?.id]);
+  // Saved Checklists is an optional, secondary feature of My Library, not a
+  // reason to block it — a failure here (e.g. a not-yet-applied migration)
+  // must never stop a member from seeing/opening the Workspaces they own.
+  // Deliberately excluded from `isLoading`/`error` below; on failure,
+  // `instances` just stays null and every card's "Saved Checklists" section
+  // renders as empty instead of the whole page failing.
+  const { data: instances, refetch: refetchInstances } = useAsync(
+    () => (user ? workspaceInstanceService.listForUser(user.id) : Promise.resolve([])),
+    [user?.id],
+  );
 
-  const isLoading = isLoadingProducts || isLoadingLicenses || isLoadingInstances;
-  const error = productsError ?? licensesError ?? instancesError;
+  const isLoading = isLoadingProducts || isLoadingLicenses;
+  const error = productsError ?? licensesError;
   const hasAnyLicense = (licenses?.length ?? 0) > 0;
   // Only Workspaces the member actually owns — locked (never activated/bought)
   // Workspaces live in Browse Workspaces instead. A Workspace stays here even

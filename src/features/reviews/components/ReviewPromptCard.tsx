@@ -22,7 +22,11 @@ interface ReviewPromptCardProps {
  * only a compact "Edit review" line remains from then on.
  */
 export function ReviewPromptCard({ userId, productId, displayName, createdFrom }: ReviewPromptCardProps) {
-  const { data: review, isLoading } = useAsync(() => reviewService.getForUser(productId, userId), [productId, userId]);
+  const {
+    data: review,
+    isLoading,
+    error: fetchError,
+  } = useAsync(() => reviewService.getForUser(productId, userId), [productId, userId]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -46,7 +50,10 @@ export function ReviewPromptCard({ userId, productId, displayName, createdFrom }
     }
   }
 
-  if (isLoading) return null;
+  // Optional feature, same as Saved Checklists — a lookup failure (e.g. an
+  // unapplied migration) must never render the "write a review" prompt on
+  // a guess; show nothing rather than assert a state we don't actually know.
+  if (isLoading || fetchError) return null;
 
   if (justSubmitted) {
     return <p className="text-sm font-medium text-primary">Thank you for your feedback!</p>;
