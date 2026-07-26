@@ -21,14 +21,25 @@ function progressForSection(section: SectionConfig, data: WorkspaceData): Sectio
       (field) => !["title", "static_text", "image", "file", "link"].includes(field.type),
     );
     const filled = countedFields.filter((field) => isNonEmpty(values[field.id])).length;
-    const isComplete = requiredFields.every((field) => isNonEmpty(values[field.id]));
+    // A section with no required fields does NOT become "every field is
+    // required" — `.every()` on an empty requiredFields array is vacuously
+    // true, which is exactly the bug this replaces. With no required
+    // fields, completion instead tracks real progress across every counted
+    // field, only reading complete once all of them are filled.
+    const isComplete =
+      requiredFields.length > 0
+        ? requiredFields.every((field) => isNonEmpty(values[field.id]))
+        : countedFields.length > 0 && filled === countedFields.length;
     return { id: section.id, filled, total: countedFields.length, isComplete, isOptional };
   }
 
   if (section.type === "checklist") {
     const values = (data[section.id] as Record<string, boolean>) ?? {};
     const filled = section.items.filter((item) => values[item.id]).length;
-    return { id: section.id, filled, total: section.items.length, isComplete: filled === section.items.length, isOptional };
+    // An empty items array must never read as "complete" — there's nothing
+    // to complete yet (same vacuous-truth issue as the empty-required-fields case above).
+    const isComplete = section.items.length > 0 && filled === section.items.length;
+    return { id: section.id, filled, total: section.items.length, isComplete, isOptional };
   }
 
   if (section.type === "outcome") {
