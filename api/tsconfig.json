@@ -14,5 +14,5 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["**/*.ts", "../src/types/**/*.ts", "../src/schemas/**/*.ts"]
+  "include": ["**/*.ts", "../src/types/**/*.ts", "../src/schemas/**/*.ts", "../src/lib/trial.ts"]
 }

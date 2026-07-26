@@ -49,6 +49,9 @@ export function TrialSelectionPage() {
           email: user.email,
           fullName: (user.user_metadata?.full_name as string | undefined) ?? null,
           productName: selected.name,
+          productSlug: selected.slug,
+          trialDuration: selected.trial_duration,
+          trialUnit: selected.trial_unit,
         });
       }
 

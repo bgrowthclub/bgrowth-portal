@@ -1,16 +1,22 @@
+import type { TrialUnit } from "@/types/database";
+
 export interface TrialActivatedNotification {
   email: string;
   fullName: string | null;
   productName: string;
+  productSlug: string;
+  trialDuration: number | null;
+  trialUnit: TrialUnit;
 }
 
 /**
- * Provider-agnostic transactional notifications, same shape as
- * checkoutService: callers never know or care how (or whether) a
- * notification actually gets delivered. Today's implementation just calls
- * a stub API route with no email provider wired up yet (see
- * api/notifications/trial-activated.ts) — connecting a real one (Resend/
- * Postmark/SendGrid) later means changing that route only, not any caller.
+ * Provider-agnostic transactional notifications: callers never know or
+ * care how (or whether) a notification actually gets delivered. The API
+ * route behind this now sends real email via Resend
+ * (api/_lib/email/sendEmail.ts) — swapping providers later, or adding a
+ * new notification type (purchase completed, marketing sends, etc.),
+ * means adding to api/_lib/email/templates/ and possibly a new endpoint;
+ * this client-side surface and its call sites never change.
  *
  * Deliberately fire-and-forget: a failed or unconfigured notification must
  * never block the trial activation it's reporting on.

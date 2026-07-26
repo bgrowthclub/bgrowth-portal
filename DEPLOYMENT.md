@@ -210,10 +210,14 @@ increments); it won't create duplicate product rows, since it upserts on
    | `SUPABASE_URL` | same Project URL — used server-side by `api/publishing-engine/*` |
    | `SUPABASE_SERVICE_ROLE_KEY` | service_role key from Phase 1 — **server-side only, never `VITE_`-prefixed** |
    | `PUBLISHING_ENGINE_SECRET` | generate one now: `openssl rand -hex 32` — save this value, Studio needs the identical string in Phase 6 |
+   | `RESEND_API_KEY` | from your Resend dashboard (resend.com/api-keys) — powers `api/notifications/*` (Trial Activated today; more notification types reuse the same key later) |
+   | `RESEND_FROM_EMAIL` | e.g. `BGrowth <notifications@bgrowthclub.com>` — the address part **must** be on a domain verified in Resend (Domains tab), or every send is rejected. Resend's own sandbox address only delivers to the account owner, never real members |
+   | `PORTAL_PUBLIC_URL` | same as the production URL you'll copy in step 4 below — used to build the logo image and "Open Workspace" link inside notification emails |
 
 4. Deploy. Once it's live, **copy the production URL** Vercel assigns
    (`https://your-project.vercel.app`, or your custom domain if you attach
-   one now) — Phase 6 and Phase 7 both need it.
+   one now) — Phase 6 and Phase 7 both need it, and so does `PORTAL_PUBLIC_URL`
+   above (update it once you know the real value, then redeploy).
 
    The site will build and load, but auth flows (sign up, password reset)
    won't fully work correctly until Phase 7's URL configuration is done —
@@ -282,6 +286,16 @@ Now that Portal's real URL exists (Phase 5), go back to Supabase:
    "signup emails silently stopped arriving," so decide deliberately
    rather than discover it live.
 
+   **This is a separate integration from `RESEND_API_KEY` above.**
+   Confirm signup / Reset Password are sent by Supabase Auth itself,
+   server-side, using whatever's configured here — the Portal's own code
+   never calls into that path. `RESEND_API_KEY`/`api/_lib/email/` is a
+   completely different integration, for emails *this app* decides to send
+   (Trial Activated today). If you want Supabase's own auth emails to also
+   go through Resend, add Resend's SMTP credentials (from its dashboard,
+   not the API key above) to this SMTP Settings screen — that's the only
+   way those specific emails route through Resend.
+
 ---
 
 ## Phase 8 — First end-to-end test
@@ -347,6 +361,7 @@ real — not just "should work."
 | Publish to Portal returns 500 with a Supabase error | Check `SUPABASE_SERVICE_ROLE_KEY`/`SUPABASE_URL` are set on the **Portal** project (not the anon key by mistake) |
 | A product doesn't appear on the storefront after publishing | Check its `status` — only `published` rows are publicly readable; `draft` is correctly invisible, not a bug |
 | Trial activation fails with a constraint error | Working as designed — that member already has a trial license; the one-trial-per-user index is doing its job |
+| Trial Activated email never arrives, but activation itself succeeds | Working as designed if `RESEND_API_KEY`/`RESEND_FROM_EMAIL` aren't set yet — the endpoint responds `{ ok: true, sent: false }` and logs the reason server-side rather than failing the trial. Check Vercel's function logs for `api/notifications/trial-activated`, and confirm `RESEND_FROM_EMAIL`'s domain is verified in Resend's dashboard, not just the API key |
 
 ---
 
@@ -356,9 +371,14 @@ real — not just "should work."
 ```
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
+VITE_CHECKOUT_URL=
+VITE_WELCOME_GUIDE_URL=
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 PUBLISHING_ENGINE_SECRET=
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=
+PORTAL_PUBLIC_URL=
 ```
 
 **bgrowth-studio (Vercel):**
