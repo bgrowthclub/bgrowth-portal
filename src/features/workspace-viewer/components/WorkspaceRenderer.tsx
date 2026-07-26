@@ -73,6 +73,19 @@ export function WorkspaceRenderer({ content, initialData, onSave, instanceLabel 
   async function handleContinue(sectionId: string) {
     setSectionSaveError(null);
     if (!onSave) {
+      // TEMP DIAGNOSTIC — this is the silent branch that would explain zero
+      // [DIAGNOSTIC handleSaveInstance]/[DIAGNOSTIC saveData] logs: onSave is
+      // only passed when WorkspaceViewerPage has a ?instance=<id> in the URL.
+      // No instance param (the plain "Open Workspace" link) means there's
+      // nothing to save to, by design — Save & Continue just advances.
+      console.warn(
+        "[DIAGNOSTIC handleContinue] onSave is undefined — skipping save entirely and just advancing. " +
+          "This means the current URL has no ?instance=<id> (check window.location.href). " +
+          "If you expected this click to persist data, you're on the transient 'Open Workspace' flow, " +
+          "not a saved instance — use '+ New Checklist' or an existing 'Saved Checklists' link instead.",
+        "current URL:",
+        window.location.href,
+      );
       advance(sectionId);
       return;
     }
