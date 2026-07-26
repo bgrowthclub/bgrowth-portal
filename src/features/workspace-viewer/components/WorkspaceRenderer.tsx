@@ -4,11 +4,14 @@ import { applyWorkspaceTheme } from "@/lib/workspaceTheme";
 import { useWorkspaceProgress } from "../hooks/useWorkspaceProgress";
 import { WorkspaceAccordion } from "./WorkspaceAccordion";
 import { WorkspaceCompletionPanel } from "./WorkspaceCompletionPanel";
+import { Button } from "@/components/ui/Button";
 
 interface WorkspaceRendererProps {
   content: WorkspaceContent;
-  /** Optional persisted fill-in data (e.g. loaded from storage in a future increment). */
+  /** Persisted fill-in data for a saved Workspace instance, if one is being opened. */
   initialData?: WorkspaceData;
+  /** Present only when this render is backed by a saved instance — shows a Save Checklist button that persists the current field values. */
+  onSave?: (data: WorkspaceData) => Promise<void>;
 }
 
 /**
@@ -17,10 +20,12 @@ interface WorkspaceRendererProps {
  * branches on a specific product; a new Workspace published from BGrowth
  * Studio renders correctly the moment its JSON lands in `products.content`.
  */
-export function WorkspaceRenderer({ content, initialData }: WorkspaceRendererProps) {
+export function WorkspaceRenderer({ content, initialData, onSave }: WorkspaceRendererProps) {
   const [data, setData] = useState<WorkspaceData>(initialData ?? {});
   const [activeId, setActiveId] = useState(content.sections[0]?.id ?? "");
   const [hasReachedEnd, setHasReachedEnd] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const progress = useWorkspaceProgress(content, data);
@@ -44,6 +49,19 @@ export function WorkspaceRenderer({ content, initialData }: WorkspaceRendererPro
     }
   }
 
+  async function handleSave() {
+    if (!onSave) return;
+    setIsSaving(true);
+    setJustSaved(false);
+    try {
+      await onSave(data);
+      setJustSaved(true);
+      window.setTimeout(() => setJustSaved(false), 2500);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <div ref={rootRef} className="flex flex-col gap-8">
       <div className="card flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
@@ -61,6 +79,14 @@ export function WorkspaceRenderer({ content, initialData }: WorkspaceRendererPro
             />
           </div>
           <span className="text-sm font-semibold text-navy-700 dark:text-white/80">{progress.percent}%</span>
+          {onSave && (
+            <div className="no-print flex items-center gap-2">
+              <Button size="sm" onClick={handleSave} isLoading={isSaving}>
+                Save Checklist
+              </Button>
+              {justSaved && <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Saved ✓</span>}
+            </div>
+          )}
         </div>
       </div>
 

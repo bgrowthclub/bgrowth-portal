@@ -1,16 +1,20 @@
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
 import { productService } from "@/services/productService";
 import { licenseService } from "@/services/licenseService";
+import { workspaceInstanceService } from "@/services/workspaceInstanceService";
 import { deriveAccessState } from "@/lib/workspaceAccess";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { FetchErrorState } from "@/components/ui/FetchErrorState";
 import { WorkspaceViewerLayout } from "./components/WorkspaceViewerLayout";
 import { WorkspaceRenderer } from "./components/WorkspaceRenderer";
+import type { WorkspaceData } from "@/types/workspaceContent";
 
 export function WorkspaceViewerPage() {
   const { slug } = useParams<{ slug: string }>();
+  const [searchParams] = useSearchParams();
+  const instanceId = searchParams.get("instance");
   const { user } = useAuth();
 
   const {
@@ -25,10 +29,22 @@ export function WorkspaceViewerPage() {
     error: licensesError,
     refetch: refetchLicenses,
   } = useAsync(() => (user ? licenseService.fetchForUser(user.id) : Promise.resolve([])), [user?.id]);
+  // Only relevant when opening a saved checklist instance (?instance=<id>) —
+  // resolves to null otherwise, so the ordinary "Open Workspace" path
+  // (no instance param) is completely unaffected by any of this.
+  const {
+    data: instance,
+    isLoading: isLoadingInstance,
+    error: instanceError,
+    refetch: refetchInstance,
+  } = useAsync(
+    () => (instanceId ? workspaceInstanceService.fetchById(instanceId) : Promise.resolve(null)),
+    [instanceId],
+  );
 
-  if (isLoadingProduct || isLoadingLicenses) return <FullPageSpinner />;
+  if (isLoadingProduct || isLoadingLicenses || isLoadingInstance) return <FullPageSpinner />;
 
-  const fetchError = productError ?? licensesError;
+  const fetchError = productError ?? licensesError ?? instanceError;
   if (fetchError) {
     return (
       <div className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center gap-6 px-6 text-center">
@@ -37,6 +53,7 @@ export function WorkspaceViewerPage() {
           onRetry={() => {
             refetchProduct();
             refetchLicenses();
+            refetchInstance();
           }}
         />
         <Link to="/library" className="text-sm font-medium text-primary hover:underline">
@@ -56,10 +73,26 @@ export function WorkspaceViewerPage() {
 
   if (!hasAccess) return <Navigate to="/library" replace />;
 
+  // A stale/foreign/deleted instance id shouldn't silently render someone
+  // else's data or a blank Workspace pretending to be that checklist — send
+  // back to Library rather than guessing.
+  if (instanceId && (!instance || instance.product_id !== product.id)) {
+    return <Navigate to="/library" replace />;
+  }
+
+  async function handleSaveInstance(data: WorkspaceData) {
+    if (!instance) return;
+    await workspaceInstanceService.saveData(instance.id, data);
+  }
+
   return (
     <WorkspaceViewerLayout product={product}>
       {product.content ? (
-        <WorkspaceRenderer content={product.content} />
+        <WorkspaceRenderer
+          content={product.content}
+          initialData={instance?.data as WorkspaceData | undefined}
+          onSave={instance ? handleSaveInstance : undefined}
+        />
       ) : (
         <div className="card flex min-h-[50vh] flex-col items-center justify-center gap-3 p-12 text-center">
           <p className="text-sm font-semibold uppercase tracking-wider text-primary">Workspace Viewer</p>

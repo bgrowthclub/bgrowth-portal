@@ -169,6 +169,27 @@ export type UserProfileRow = {
   created_at: string;
 };
 
+export type WorkspaceInstanceStatus = "in_progress" | "completed" | "archived";
+
+/**
+ * One independently-named, filled-in record of an owned Workspace (e.g. a
+ * single client's notary appointment checklist) — a member can hold many
+ * per product. `data` mirrors WorkspaceContent's field ids, same shape as
+ * WorkspaceRenderer's local field state, just persisted. `status` only
+ * ever "in_progress" today — "completed"/"archived" are reserved for the
+ * future Workspace Engine (see WORKSPACE_INSTANCES_ARCHITECTURE.md).
+ */
+export type WorkspaceInstanceRow = {
+  id: string;
+  user_id: string;
+  product_id: string;
+  label: string;
+  data: Record<string, unknown>;
+  status: WorkspaceInstanceStatus;
+  created_at: string;
+  updated_at: string;
+};
+
 /** Args/Returns for the publish_product() RPC — see supabase/migrations/0003_publishing_engine.sql. */
 export type PublishProductArgs = {
   p_studio_product_id: string;
@@ -301,6 +322,25 @@ export interface Database {
         Insert: Partial<WorkspaceCategoryRow> & Pick<WorkspaceCategoryRow, "name" | "slug">;
         Update: Partial<WorkspaceCategoryRow>;
         Relationships: [];
+      };
+      workspace_instances: {
+        Row: WorkspaceInstanceRow;
+        Insert: Partial<WorkspaceInstanceRow> & Pick<WorkspaceInstanceRow, "user_id" | "product_id" | "label">;
+        Update: Partial<WorkspaceInstanceRow>;
+        Relationships: [
+          {
+            foreignKeyName: "workspace_instances_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "workspace_instances_product_id_fkey";
+            columns: ["product_id"];
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: Record<string, never>;

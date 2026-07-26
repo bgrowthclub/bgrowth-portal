@@ -1,16 +1,21 @@
-# Workspace Instances — Future Architecture (planning only, not implemented)
+# Workspace Instances — Future Architecture
 
-This document exists so today's decisions don't box in a future capability:
-letting a member create, save, reopen, complete, and archive **multiple
-independent filled-in records** of the same owned Workspace — e.g. a mobile
-notary preparing three separate client checklists before leaving the
-office, each saved and reopenable on its own, with a sidebar listing every
-incomplete one for quick switching between clients.
+This document was written as planning-only, before any of it was built, so
+today's decisions wouldn't box in a future capability: letting a member
+create, save, reopen, complete, and archive **multiple independent
+filled-in records** of the same owned Workspace — e.g. a mobile notary
+preparing three separate client checklists before leaving the office, each
+saved and reopenable on its own.
 
-**Nothing below is built.** This is a plan to build against later, written
-now so nothing shipped in this pass (the Library/Marketplace split, the
-Checkout/Notification service abstractions) needs to be reworked when this
-capability is actually implemented.
+**An MVP slice of this is now built** — see `supabase/migrations/0008_workspace_instances.sql`,
+`src/services/workspaceInstanceService.ts`, and the "Saved Checklists" list
+on each `LibraryWorkspaceCard`. What shipped is deliberately the smallest
+useful slice: create/save/reopen/continue-editing, surfaced as a flat list
+per Workspace card in My Library — **not** the sidebar-based in-Workspace
+switcher, and **not** complete/archive UI, both described below as still
+future. The schema below was simplified in one way from the original plan
+(`user_id`/`product_id` directly, no `license_id` FK — noted where it
+comes up) but is otherwise exactly what was proposed here.
 
 ## Today's constraint, precisely
 
@@ -34,13 +39,12 @@ and not exposed anywhere in the Portal — but it proves the shape works and
 gives the Portal's version a concrete model to mirror rather than
 inventing one from scratch.
 
-## Proposed Portal-side schema (new tables only — no changes to existing ones)
+## Portal-side schema (built — supabase/migrations/0008_workspace_instances.sql)
 
 ```sql
 create table portal.workspace_instances (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references portal.users(id) on delete cascade,
-  license_id uuid not null references portal.licenses(id) on delete cascade,
   product_id uuid not null references portal.products(id) on delete cascade,
   label text not null,              -- e.g. the client/job name, member-supplied
   data jsonb not null default '{}', -- filled field values, keyed by field id — mirrors WorkspaceContent's section/field ids, never the definition itself
@@ -50,54 +54,49 @@ create table portal.workspace_instances (
 );
 ```
 
-- `user_id` is denormalized (not just derived via `license_id`) so RLS stays
-  a simple, fast `auth.uid() = user_id` check — the same pattern already
-  used on `portal.licenses` itself.
-- `license_id` ties an instance to the specific owned Workspace — a member
-  can only create instances for a Workspace they actually hold a license
-  for, enforced the same way trial activation already is.
+- **Simplified from the original plan**: ties to `(user_id, product_id)`
+  directly rather than through a `license_id` FK. A member can only ever
+  hold one license per product today, and the insert RLS policy already
+  checks `exists (select 1 from portal.licenses where user_id = auth.uid()
+  and product_id = ... and status = 'active')` — so ownership is still
+  enforced at the database, just without an extra join column that nothing
+  else needed yet. Revisit if licenses ever become non-unique per product
+  (e.g. renewals as new rows instead of updates).
+- `user_id` denormalized so RLS stays a simple, fast `auth.uid() = user_id`
+  check — the same pattern already used on `portal.licenses` itself.
 - `data` (filled values) is completely separate from `products.content`
-  (the Workspace's rendering *definition*) — this split already exists
-  conceptually today (`WorkspaceRenderer` takes `content` as a prop; field
-  state is separate, just not persisted yet), so no rework of the
-  definition/content model is needed to add this.
+  (the Workspace's rendering *definition*) — this split already existed
+  conceptually (`WorkspaceRenderer` took `content` as a prop; field state
+  was separate, just transient) — no rework of the definition/content
+  model was needed to add this.
+- `status` defaults to, and today only ever holds, `'in_progress'` —
+  `'completed'`/`'archived'` are valid per the check constraint but nothing
+  writes them yet; see "still future" below.
 
-## Why nothing shipped in this pass blocks it
+## What's built vs. what's still future
 
-- **Licenses model** — `workspace_instances.license_id` extends cleanly
-  from the existing one-row-per-owned-Workspace `licenses` table; nothing
-  about today's Library/Marketplace split changes what a license means.
-- **Content vs. data separation** — already true today (`WorkspaceContent`
-  is the definition; field values were always meant to be a separate
-  concern, just transient so far).
-- **Service-layer pattern** — `checkoutService`/`notificationService`
-  (added in this pass) establish the exact convention a future
-  `workspaceInstanceService` (list/create/update/complete/archive) would
-  also follow: components call a plain async service object, never the
-  Supabase client directly for anything beyond simple reads.
-- **WorkspaceViewerPage** — today renders one static view; evolving it into
-  a list view (`/workspace/:slug`) plus a per-instance fill view
-  (`/workspace/:slug/:instanceId`) is additive routing, not a rewrite of
-  `WorkspaceRenderer` itself, which already just takes `content` as a prop
-  and doesn't know or care whether the surrounding page shows one instance
-  or ten.
+**Built**: `workspaceInstanceService` (list for user, create, fetch by id,
+save data); a "Saved Checklists" flat list + "+ New Checklist" action on
+each `LibraryWorkspaceCard`; `WorkspaceViewerPage` reads an optional
+`?instance=<id>` query param (no new route) to load/save a specific
+instance's data via `WorkspaceRenderer`'s `initialData`/`onSave` props,
+which existed but were unwired before this. A plain "Open Workspace" visit
+with no instance param is completely unaffected — same transient,
+unsaved behavior as always.
 
-## What building this for real would actually require (later, not now)
+**Still future, deliberately not built in this pass**:
+1. The in-Workspace sidebar switcher this document originally
+   described — every incomplete instance for that Workspace, listed
+   inside the Workspace view itself for one-click switching between
+   clients without going back to Library. Today reopening a different
+   checklist means returning to the Library card's list instead.
+2. Complete/archive UI and behavior — the `status` column already
+   supports it (see above), but nothing currently reads or writes anything
+   but `'in_progress'`.
+3. Autosave — saving today is an explicit "Save Checklist" click, not a
+   debounced background write.
 
-1. The migration above, plus RLS policies mirroring `licenses`' pattern
-   (`select`/`insert`/`update` where `auth.uid() = user_id`).
-2. A new `workspaceInstanceService` (list instances for a license, create,
-   autosave/update `data`, mark completed, archive).
-3. `WorkspaceViewerPage` split into two views: an instance list (the
-   sidebar the brief describes — every incomplete instance for that
-   Workspace, click to reopen) and a fill view (today's `WorkspaceRenderer`,
-   now reading/writing a specific instance's `data` instead of purely local
-   state).
-4. Autosave wiring inside the fill view (debounced writes to
-   `workspace_instances.data` — the one genuinely new interaction pattern
-   this introduces, since today nothing in the Portal persists field input
-   at all).
-
-None of this needs to happen now. It's written down so the next person
-picking it up (human or AI) starts from an evaluated plan instead of
-re-deriving one.
+None of these three need to happen now. They're written down so the next
+person picking this up (human or AI) starts from an evaluated plan instead
+of re-deriving one, and so the schema already in place doesn't need to
+change to support them later.

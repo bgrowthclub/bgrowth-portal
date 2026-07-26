@@ -1,12 +1,23 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import type { WorkspaceWithAccess } from "@/types/workspace";
+import type { WorkspaceInstanceRow } from "@/types/database";
 import { AccessStateBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { BuyNowButton } from "@/components/ui/BuyNowButton";
+import { PromptDialog } from "@/components/ui/PromptDialog";
+import { workspaceInstanceService } from "@/services/workspaceInstanceService";
 
 function formatExpiry(expiresAt: string | null): string | null {
   if (!expiresAt) return null;
   return new Date(expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+interface LibraryWorkspaceCardProps {
+  workspace: WorkspaceWithAccess;
+  userId: string;
+  /** This Workspace's saved checklist instances only — MyLibraryPage groups the full list by product before passing it down. */
+  instances: WorkspaceInstanceRow[];
 }
 
 /**
@@ -15,10 +26,29 @@ function formatExpiry(expiresAt: string | null): string | null {
  * Workspaces instead. A Workspace never disappears from here just because
  * its trial expired — it stays visible with a Buy Now prompt instead.
  */
-export function LibraryWorkspaceCard({ workspace }: { workspace: WorkspaceWithAccess }) {
+export function LibraryWorkspaceCard({ workspace, userId, instances }: LibraryWorkspaceCardProps) {
+  const navigate = useNavigate();
   const canOpen = workspace.accessState === "trial" || workspace.accessState === "purchased";
   const isExpired = workspace.accessState === "expired";
   const expiry = workspace.accessState === "trial" ? formatExpiry(workspace.license?.expires_at ?? null) : null;
+
+  const [isNaming, setIsNaming] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  async function handleCreateInstance(label: string) {
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      const instance = await workspaceInstanceService.create(userId, workspace.id, label);
+      setIsNaming(false);
+      navigate(`/workspace/${workspace.slug}?instance=${instance.id}`);
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Couldn't create that checklist. Please try again.");
+    } finally {
+      setIsCreating(false);
+    }
+  }
 
   return (
     <div className="card overflow-hidden">
@@ -60,7 +90,54 @@ export function LibraryWorkspaceCard({ workspace }: { workspace: WorkspaceWithAc
             <BuyNowButton product={workspace} />
           )}
         </div>
+
+        {canOpen && (
+          <div className="mt-5 border-t border-navy-100/60 pt-4 dark:border-white/10">
+            <p className="text-xs font-semibold uppercase tracking-wide text-navy-400 dark:text-white/40">
+              Saved Checklists
+            </p>
+            {instances.length > 0 ? (
+              <ul className="mt-2 flex flex-col gap-1.5">
+                {instances.map((instance) => (
+                  <li key={instance.id}>
+                    <Link
+                      to={`/workspace/${workspace.slug}?instance=${instance.id}`}
+                      className="text-sm text-navy-700 hover:text-primary hover:underline dark:text-white/80"
+                    >
+                      • {instance.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-navy-400 dark:text-white/40">No saved checklists yet.</p>
+            )}
+            {createError && (
+              <p role="alert" className="mt-2 text-xs text-red-500">
+                {createError}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsNaming(true)}
+              className="mt-3 text-sm font-semibold text-primary hover:underline"
+            >
+              + New Checklist
+            </button>
+          </div>
+        )}
       </div>
+
+      <PromptDialog
+        isOpen={isNaming}
+        title="Name this checklist"
+        label="Client or job name"
+        placeholder="e.g. John Smith"
+        confirmLabel="Create"
+        isSubmitting={isCreating}
+        onSubmit={handleCreateInstance}
+        onCancel={() => setIsNaming(false)}
+      />
     </div>
   );
 }

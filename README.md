@@ -56,9 +56,11 @@ src/
     profile/      Personal info, licenses, trial expiration
   hooks/          cross-feature hooks (useTheme, useAsync)
   services/       cross-feature data access (supabaseClient, productService,
-                  licenseService, userService) — the only place Supabase
-                  queries are written; features call these, never the client
-                  directly
+                  licenseService, userService, workspaceInstanceService,
+                  checkoutService, notificationService) — the only place
+                  Supabase queries (or, for checkout/notifications, the
+                  provider-agnostic service call) are written; features
+                  call these, never the client directly
   types/          database.ts (mirrors the Supabase schema), workspace.ts
                   (derived/presentation types), workspaceContent.ts (the
                   Workspace JSON schema — mirrors BGrowth Studio's engine)
@@ -127,6 +129,7 @@ Required environment variables (server-side only — never prefix these with
 | `catalog_index` | Read-optimized, search-indexed projection of published products — public read, not yet queried by the Portal's own pages |
 | `users` | Public profile row, 1:1 with `auth.users`, auto-created by a trigger on signup |
 | `licenses` | `type` (trial / purchased / lifetime), `status` (active / expired / revoked), `activated_at`, `expires_at` |
+| `workspace_instances` | Saved, named, filled-in checklist records per owned Workspace (e.g. one per client) — `label`, `data` (field values), `status` (only `in_progress` used today) — see `WORKSPACE_INSTANCES_ARCHITECTURE.md` |
 
 Trial length is per-Workspace, not a platform-wide constant: `products.is_trial_eligible`
 gates whether a Workspace offers a trial at all, and `products.trial_duration`/

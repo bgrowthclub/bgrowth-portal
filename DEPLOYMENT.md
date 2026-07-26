@@ -67,10 +67,10 @@ that already exist. That step is Phase 2b, after the migrations run.
 
 Supabase's **SQL Editor** (left sidebar) is the simplest path — no CLI
 setup needed. Run each file's contents as its own query, top to bottom,
-**in this exact order** (each depends on the one before it). All six are
+**in this exact order** (each depends on the one before it). All eight are
 purely additive: they only ever `create schema if not exists portal` and
-`create table`/`create function` inside it — none of them read, alter, or
-drop anything in `public` or any LMS schema.
+`create table`/`create function`/`grant` inside it — none of them read,
+alter, or drop anything in `public` or any LMS schema.
 
 1. `supabase/migrations/0001_init.sql` — creates `schema portal` if it
    doesn't already exist, then `portal.workspace_categories`,
@@ -103,10 +103,21 @@ drop anything in `public` or any LMS schema.
    the product's existing value instead of clearing it (mirrors how
    `cover_image_url` already behaves) — protects against Studio's builder
    UI not yet persisting trial config across a reopened-template edit.
+7. `supabase/migrations/0007_portal_schema_grants.sql` — grants `anon`/
+   `authenticated`/`service_role` `USAGE` on the `portal` schema and the
+   per-table privileges each already-existing RLS policy assumes.
+   Supabase only auto-grants this for the built-in `public` schema, never
+   for one a project creates itself — without this, every request fails
+   with `permission denied for schema portal` (42501) regardless of which
+   API key is used.
+8. `supabase/migrations/0008_workspace_instances.sql` — adds
+   `portal.workspace_instances` (saved, named, filled-in checklist records
+   per owned Workspace — see `WORKSPACE_INSTANCES_ARCHITECTURE.md`) with
+   its own RLS policies and grants.
 
-**After running all six, verify in the SQL Editor:**
+**After running all eight, verify in the SQL Editor:**
 ```sql
--- Should return 7 tables, all in the portal schema
+-- Should return 10 tables, all in the portal schema
 select table_name from information_schema.tables
 where table_schema = 'portal' order by table_name;
 

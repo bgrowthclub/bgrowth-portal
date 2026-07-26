@@ -3,6 +3,7 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
 import { productService } from "@/services/productService";
 import { licenseService } from "@/services/licenseService";
+import { workspaceInstanceService } from "@/services/workspaceInstanceService";
 import { attachAccessState } from "@/lib/workspaceAccess";
 import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
@@ -24,9 +25,15 @@ export function MyLibraryPage() {
     error: licensesError,
     refetch: refetchLicenses,
   } = useAsync(() => (user ? licenseService.fetchForUser(user.id) : Promise.resolve([])), [user?.id]);
+  const {
+    data: instances,
+    isLoading: isLoadingInstances,
+    error: instancesError,
+    refetch: refetchInstances,
+  } = useAsync(() => (user ? workspaceInstanceService.listForUser(user.id) : Promise.resolve([])), [user?.id]);
 
-  const isLoading = isLoadingProducts || isLoadingLicenses;
-  const error = productsError ?? licensesError;
+  const isLoading = isLoadingProducts || isLoadingLicenses || isLoadingInstances;
+  const error = productsError ?? licensesError ?? instancesError;
   const hasAnyLicense = (licenses?.length ?? 0) > 0;
   // Only Workspaces the member actually owns — locked (never activated/bought)
   // Workspaces live in Browse Workspaces instead. A Workspace stays here even
@@ -39,6 +46,7 @@ export function MyLibraryPage() {
   function handleRetry() {
     refetchProducts();
     refetchLicenses();
+    refetchInstances();
   }
 
   if (!isLoading && !error && !hasAnyLicense) {
@@ -87,10 +95,15 @@ export function MyLibraryPage() {
         </div>
       )}
 
-      {!isLoading && !error && workspaces && (
+      {!isLoading && !error && workspaces && user && (
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {workspaces.map((workspace) => (
-            <LibraryWorkspaceCard key={workspace.id} workspace={workspace} />
+            <LibraryWorkspaceCard
+              key={workspace.id}
+              workspace={workspace}
+              userId={user.id}
+              instances={(instances ?? []).filter((instance) => instance.product_id === workspace.id)}
+            />
           ))}
         </div>
       )}
