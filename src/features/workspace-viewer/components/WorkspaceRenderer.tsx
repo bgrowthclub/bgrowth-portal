@@ -9,6 +9,14 @@ import { WorkspaceCompletionPanel } from "./WorkspaceCompletionPanel";
 import { WorkspacePrintSummary } from "./WorkspacePrintSummary";
 import { Button } from "@/components/ui/Button";
 
+// TEMP DIAGNOSTIC — module-level (not component state/refs, which reset on
+// unmount) so we can detect a populated -> {} transition even when it
+// happens via a full remount rather than a setData call inside the same
+// instance. Survives across every mount of every WorkspaceRenderer on the
+// page for the lifetime of this tab.
+let __diagLastSeenData: WorkspaceData | null = null;
+let __diagMountCounter = 0;
+
 interface WorkspaceRendererProps {
   content: WorkspaceContent;
   /** Persisted fill-in data for a saved Workspace instance, if one is being opened. */
@@ -26,6 +34,30 @@ interface WorkspaceRendererProps {
  * Studio renders correctly the moment its JSON lands in `products.content`.
  */
 export function WorkspaceRenderer({ content, initialData, onSave, instanceLabel }: WorkspaceRendererProps) {
+  // TEMP DIAGNOSTIC — a ref's initializer only ever runs once per mount
+  // (same rule as useState), so if this fires with a NEW id, this is
+  // provably a fresh component instance, not the one that had your typed
+  // data a moment ago. This is the one reliable way to prove "remount" vs
+  // "same instance, data got cleared" from inside the component itself.
+  const mountIdRef = useRef<number | null>(null);
+  if (mountIdRef.current === null) {
+    __diagMountCounter += 1;
+    mountIdRef.current = __diagMountCounter;
+    console.log(
+      `[DIAGNOSTIC WorkspaceRenderer] MOUNTING instance #${mountIdRef.current}. initialData prop:`,
+      JSON.stringify(initialData),
+    );
+    if (__diagLastSeenData && Object.keys(__diagLastSeenData).length > 0 && Object.keys(initialData ?? {}).length === 0) {
+      console.error(
+        `[DIAGNOSTIC WorkspaceRenderer] REMOUNT WIPED DATA — instance #${mountIdRef.current} is starting with ` +
+          `empty/undefined initialData, but the LAST data this component tree ever held (from a previous mount) was:`,
+        JSON.stringify(__diagLastSeenData),
+        "— this proves the reset happened via an unmount+remount, not via any setData() call.",
+      );
+      console.trace("[DIAGNOSTIC WorkspaceRenderer] stack at the moment this remount was detected");
+    }
+  }
+
   const [data, setData] = useState<WorkspaceData>(initialData ?? {});
   const [activeId, setActiveId] = useState(content.sections[0]?.id ?? "");
   const [hasReachedEnd, setHasReachedEnd] = useState(false);
@@ -43,12 +75,51 @@ export function WorkspaceRenderer({ content, initialData, onSave, instanceLabel 
 
   const progress = useWorkspaceProgress(content, data);
 
+  // TEMP DIAGNOSTIC — item 1: data on every render, tagged with which
+  // mounted instance this is. Also keeps the module-level "last seen"
+  // tracker current, and a ref so the unmount log below can read it live.
+  console.log(`[DIAGNOSTIC WorkspaceRenderer] RENDER instance #${mountIdRef.current}, data =`, JSON.stringify(data));
+  __diagLastSeenData = data;
+  const latestDataRef = useRef(data);
+  latestDataRef.current = data;
+
+  useEffect(() => {
+    return () => {
+      console.log(
+        `[DIAGNOSTIC WorkspaceRenderer] UNMOUNTING instance #${mountIdRef.current}. Last data it held:`,
+        JSON.stringify(latestDataRef.current),
+      );
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (rootRef.current) applyWorkspaceTheme(content.brand.primaryColor, rootRef.current);
   }, [content.brand.primaryColor]);
 
+  // TEMP DIAGNOSTIC — item 2/3: every setData call, with prev/next and an
+  // explicit check for a populated -> {} transition. Note: this specific
+  // call site can mathematically never produce that transition on its own
+  // (it always spreads prev and adds/overwrites one key, never fewer keys
+  // than prev had) — logging it anyway to prove that at runtime rather
+  // than by inspection alone, and to catch it immediately if this
+  // assumption is ever wrong.
   function handleSectionValueChange(sectionId: string, value: WorkspaceData[string]) {
-    setData((prev) => ({ ...prev, [sectionId]: value }));
+    setData((prev) => {
+      const next = { ...prev, [sectionId]: value };
+      console.log(`[DIAGNOSTIC setData] instance #${mountIdRef.current} via handleSectionValueChange(${sectionId})`, {
+        prev: JSON.stringify(prev),
+        next: JSON.stringify(next),
+      });
+      if (Object.keys(prev).length > 0 && Object.keys(next).length === 0) {
+        console.error(
+          `[DIAGNOSTIC setData] DATA WIPED inside handleSectionValueChange itself (instance #${mountIdRef.current}) — ` +
+            "this would contradict the merge logic below; capturing a stack trace:",
+        );
+        console.trace();
+      }
+      return next;
+    });
   }
 
   function advance(sectionId: string) {
