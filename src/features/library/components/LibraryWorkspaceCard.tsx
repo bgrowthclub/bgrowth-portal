@@ -2,17 +2,23 @@ import { Link } from "react-router-dom";
 import type { WorkspaceWithAccess } from "@/types/workspace";
 import { AccessStateBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { getCheckoutUrl } from "@/lib/checkout";
+import { BuyNowButton } from "@/components/ui/BuyNowButton";
 
 function formatExpiry(expiresAt: string | null): string | null {
   if (!expiresAt) return null;
   return new Date(expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+/**
+ * Only ever renders trial/purchased/expired Workspaces — MyLibraryPage
+ * filters out "locked" (never activated/bought) ones, those live in Browse
+ * Workspaces instead. A Workspace never disappears from here just because
+ * its trial expired — it stays visible with a Buy Now prompt instead.
+ */
 export function LibraryWorkspaceCard({ workspace }: { workspace: WorkspaceWithAccess }) {
   const canOpen = workspace.accessState === "trial" || workspace.accessState === "purchased";
+  const isExpired = workspace.accessState === "expired";
   const expiry = workspace.accessState === "trial" ? formatExpiry(workspace.license?.expires_at ?? null) : null;
-  const checkoutUrl = getCheckoutUrl(workspace.slug);
 
   return (
     <div className="card overflow-hidden">
@@ -38,6 +44,11 @@ export function LibraryWorkspaceCard({ workspace }: { workspace: WorkspaceWithAc
             Trial ends {expiry}
           </p>
         )}
+        {isExpired && (
+          <p className="mt-2 text-xs text-navy-500 dark:text-white/60">
+            Your trial has ended. Purchase this Workspace to keep using it.
+          </p>
+        )}
         <div className="mt-5">
           {canOpen ? (
             <Link to={`/workspace/${workspace.slug}`}>
@@ -45,16 +56,8 @@ export function LibraryWorkspaceCard({ workspace }: { workspace: WorkspaceWithAc
                 Open Workspace
               </Button>
             </Link>
-          ) : checkoutUrl ? (
-            <a href={checkoutUrl} className="block">
-              <Button size="sm" variant="secondary" className="w-full">
-                Buy
-              </Button>
-            </a>
           ) : (
-            <Button size="sm" variant="secondary" className="w-full" disabled title="Checkout isn't set up yet">
-              Buy
-            </Button>
+            <BuyNowButton product={workspace} />
           )}
         </div>
       </div>

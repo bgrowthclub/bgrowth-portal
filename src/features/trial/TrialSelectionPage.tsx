@@ -4,6 +4,7 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
 import { productService } from "@/services/productService";
 import { licenseService } from "@/services/licenseService";
+import { notificationService } from "@/services/notificationService";
 import { Spinner } from "@/components/ui/Spinner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FetchErrorState } from "@/components/ui/FetchErrorState";
@@ -42,12 +43,22 @@ export function TrialSelectionPage() {
     setIsActivating(true);
     try {
       await licenseService.activateTrial(user.id, selected);
-      navigate("/library", {
+
+      if (user.email) {
+        void notificationService.sendTrialActivatedEmail({
+          email: user.email,
+          fullName: (user.user_metadata?.full_name as string | undefined) ?? null,
+          productName: selected.name,
+        });
+      }
+
+      navigate("/trial-selection/welcome", {
         replace: true,
         state: {
-          justActivatedName: selected.name,
-          justActivatedTrialDuration: selected.trial_duration,
-          justActivatedTrialUnit: selected.trial_unit,
+          productName: selected.name,
+          productSlug: selected.slug,
+          trialDuration: selected.trial_duration,
+          trialUnit: selected.trial_unit,
         },
       });
     } catch (err) {

@@ -1,19 +1,17 @@
 import { Link } from "react-router-dom";
 import type { WorkspaceWithAccess } from "@/types/workspace";
-import { AccessStateBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { getCheckoutUrl } from "@/lib/checkout";
+import { BuyNowButton } from "@/components/ui/BuyNowButton";
 
 interface MarketplaceWorkspaceCardProps {
   workspace: WorkspaceWithAccess;
-  /** Whether this member has ever activated a trial (any Workspace) — gates whether a not-yet-owned, trial-eligible Workspace still offers "Start Free Trial" here. */
+  /** Whether this member has ever activated a trial (any Workspace) — gates whether this Workspace still offers "Start Free Trial" here. */
   hasUsedTrial: boolean;
 }
 
+/** Only ever renders "locked" Workspaces — MarketplacePage filters to discovery only; anything owned lives in My Library instead. */
 export function MarketplaceWorkspaceCard({ workspace, hasUsedTrial }: MarketplaceWorkspaceCardProps) {
-  const isOwned = workspace.accessState === "trial" || workspace.accessState === "purchased";
-  const canStartTrial = !isOwned && workspace.is_trial_eligible && !hasUsedTrial;
-  const checkoutUrl = getCheckoutUrl(workspace.slug);
+  const canStartTrial = workspace.is_trial_eligible && !hasUsedTrial;
 
   return (
     <div className="card overflow-hidden">
@@ -27,36 +25,19 @@ export function MarketplaceWorkspaceCard({ workspace, hasUsedTrial }: Marketplac
         )}
       </div>
       <div className="p-6">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="text-lg font-semibold text-navy-900 dark:text-white">{workspace.name}</h3>
-          <AccessStateBadge state={workspace.accessState} />
-        </div>
+        <h3 className="text-lg font-semibold text-navy-900 dark:text-white">{workspace.name}</h3>
         <p className="mt-2 line-clamp-2 text-sm text-navy-500 dark:text-white/60">
           {workspace.short_description}
         </p>
         <div className="mt-5">
-          {isOwned ? (
-            <Link to={`/workspace/${workspace.slug}`}>
-              <Button size="sm" className="w-full">
-                Open Workspace
-              </Button>
-            </Link>
-          ) : canStartTrial ? (
+          {canStartTrial ? (
             <Link to="/trial-selection">
               <Button size="sm" className="w-full">
                 Start Free Trial
               </Button>
             </Link>
-          ) : checkoutUrl ? (
-            <a href={checkoutUrl} className="block">
-              <Button size="sm" variant="secondary" className="w-full">
-                Buy
-              </Button>
-            </a>
           ) : (
-            <Button size="sm" variant="secondary" className="w-full" disabled title="Checkout isn't set up yet">
-              Buy
-            </Button>
+            <BuyNowButton product={workspace} />
           )}
         </div>
       </div>

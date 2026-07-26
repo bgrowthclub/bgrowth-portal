@@ -13,6 +13,7 @@ import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
 import { VerifyEmailPage } from "@/features/auth/VerifyEmailPage";
 import { TrialSelectionPage } from "@/features/trial/TrialSelectionPage";
+import { TrialWelcomePage } from "@/features/trial/TrialWelcomePage";
 import { MyLibraryPage } from "@/features/library/MyLibraryPage";
 import { MarketplacePage } from "@/features/marketplace/MarketplacePage";
 import { ProfilePage } from "@/features/profile/ProfilePage";
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: "/trial-selection", element: <TrialSelectionPage /> },
+          { path: "/trial-selection/welcome", element: <TrialWelcomePage /> },
           { path: "/library", element: <MyLibraryPage /> },
           { path: "/browse", element: <MarketplacePage /> },
           { path: "/profile", element: <ProfilePage /> },

@@ -31,7 +31,11 @@ export function MarketplacePage() {
 
   const isLoading = isLoadingProducts || isLoadingLicenses || isCheckingTrial;
   const error = productsError ?? licensesError ?? trialCheckError;
-  const workspaces = products && licenses ? attachAccessState(products, licenses) : null;
+  // Discovery only — anything the member owns (active trial, purchased, or a
+  // now-expired trial) lives in My Library instead, not here.
+  const workspaces = products && licenses
+    ? attachAccessState(products, licenses).filter((w) => w.accessState === "locked")
+    : null;
 
   function handleRetry() {
     refetchProducts();
@@ -44,7 +48,7 @@ export function MarketplacePage() {
       <div>
         <h1 className="text-2xl font-bold text-navy-900 dark:text-white">Browse Workspaces</h1>
         <p className="mt-1 text-sm text-navy-500 dark:text-white/60">
-          Every BGrowth Workspace — open what you own, start your one free trial, or buy the rest.
+          Workspaces you haven't tried or purchased yet.
         </p>
       </div>
 
@@ -62,7 +66,7 @@ export function MarketplacePage() {
 
       {!isLoading && !error && workspaces && workspaces.length === 0 && (
         <p className="mt-12 text-center text-sm text-navy-400 dark:text-white/40">
-          New Workspaces are on the way — check back soon.
+          You're already trialing or own every Workspace we offer today — new ones are on the way.
         </p>
       )}
 

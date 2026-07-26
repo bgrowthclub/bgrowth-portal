@@ -13,7 +13,7 @@ const LABELS: Record<WorkspaceAccessState, string> = {
   trial: "Trial",
   purchased: "Purchased",
   locked: "Locked",
-  expired: "Expired",
+  expired: "Trial Expired",
 };
 
 export function AccessStateBadge({ state }: { state: WorkspaceAccessState }) {

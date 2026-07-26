@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
 import { productService } from "@/services/productService";
@@ -9,21 +8,9 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { FetchErrorState } from "@/components/ui/FetchErrorState";
 import { LibraryWorkspaceCard } from "./components/LibraryWorkspaceCard";
-import { formatTrialSentence } from "@/lib/trial";
-import type { TrialUnit } from "@/types/database";
-
-interface TrialActivatedState {
-  justActivatedName?: string;
-  justActivatedTrialDuration?: number | null;
-  justActivatedTrialUnit?: TrialUnit;
-}
 
 export function MyLibraryPage() {
   const { user } = useAuth();
-  const location = useLocation();
-  const [activatedTrial, setActivatedTrial] = useState(
-    () => location.state as TrialActivatedState | null,
-  );
 
   const {
     data: products,
@@ -42,8 +29,9 @@ export function MyLibraryPage() {
   const error = productsError ?? licensesError;
   const hasAnyLicense = (licenses?.length ?? 0) > 0;
   // Only Workspaces the member actually owns — locked (never activated/bought)
-  // Workspaces live in Browse Workspaces instead, so a member with zero
-  // licenses sees an empty Library, not the full catalog with "Locked" badges.
+  // Workspaces live in Browse Workspaces instead. A Workspace stays here even
+  // after its trial expires (see LibraryWorkspaceCard) — it never disappears,
+  // it just switches to a Buy Now prompt.
   const workspaces = products && licenses
     ? attachAccessState(products, licenses).filter((w) => w.accessState !== "locked")
     : null;
@@ -51,6 +39,26 @@ export function MyLibraryPage() {
   function handleRetry() {
     refetchProducts();
     refetchLicenses();
+  }
+
+  if (!isLoading && !error && !hasAnyLicense) {
+    // Before a trial is chosen, Library is nothing but this welcome state —
+    // not a banner sitting above an already-empty grid.
+    return (
+      <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-6 py-12 text-center">
+        <span className="text-sm font-semibold uppercase tracking-wider text-primary">Welcome to BGrowth</span>
+        <h1 className="mt-3 text-3xl font-bold text-navy-900 dark:text-white sm:text-4xl">
+          Choose Your Free Trial
+        </h1>
+        <p className="mt-4 text-navy-500 dark:text-white/60">
+          Pick one Workspace to try, completely free. Once you activate it, it'll live right here in
+          your Library.
+        </p>
+        <Link to="/trial-selection" className="mt-8">
+          <Button size="lg">Choose Your Free Trial</Button>
+        </Link>
+      </div>
+    );
   }
 
   return (
@@ -66,41 +74,6 @@ export function MyLibraryPage() {
           Browse Workspaces →
         </Link>
       </div>
-
-      {activatedTrial?.justActivatedName && (
-        <div className="card mt-6 flex items-center justify-between gap-4 border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-400/20 dark:bg-emerald-400/10">
-          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-            🎉 {activatedTrial.justActivatedName} is now active
-            {activatedTrial.justActivatedTrialDuration != null && activatedTrial.justActivatedTrialUnit
-              ? ` — your ${formatTrialSentence(activatedTrial.justActivatedTrialDuration, activatedTrial.justActivatedTrialUnit)} trial has started.`
-              : " — your trial has started."}
-          </p>
-          <button
-            type="button"
-            onClick={() => setActivatedTrial(null)}
-            aria-label="Dismiss"
-            className="shrink-0 text-emerald-700/60 hover:text-emerald-700 dark:text-emerald-300/60 dark:hover:text-emerald-300"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {!isLoading && !error && !hasAnyLicense && (
-        <div className="card mt-6 flex flex-col items-center gap-4 p-8 text-center sm:flex-row sm:justify-between sm:text-left">
-          <div>
-            <h2 className="font-semibold text-navy-900 dark:text-white">
-              You haven&apos;t activated your free trial yet
-            </h2>
-            <p className="mt-1 text-sm text-navy-500 dark:text-white/60">
-              Pick one Workspace to try, completely free.
-            </p>
-          </div>
-          <Link to="/trial-selection">
-            <Button>Choose a Free Trial</Button>
-          </Link>
-        </div>
-      )}
 
       {isLoading && (
         <div className="flex justify-center py-16">
