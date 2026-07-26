@@ -216,7 +216,13 @@ increments); it won't create duplicate product rows, since it upserts on
 1. Vercel dashboard → **Add New → Project** → import `bgrowthclub/bgrowth-portal`.
 2. Framework preset: **Vite** (Vercel should auto-detect this). Build
    command `npm run build`, output directory `dist`, install command
-   `npm install` — defaults should already be correct.
+   `npm install` — defaults should already be correct. `vercel.json` at
+   the repo root rewrites every non-`/api` path to `/index.html`, so a
+   hard refresh or a direct link to a client-side route (e.g.
+   `/workspace/notary-appointment-workspace`) resolves instead of 404ing
+   at the hosting layer before React Router ever gets a chance to handle
+   it — without this, only in-app navigation (clicking a `<Link>`) works;
+   refreshing or opening a deep link directly does not.
 3. Before the first deploy, add these **Environment Variables** (Project
    Settings → Environment Variables — set for Production, and Preview too
    if you want preview deployments to work):
@@ -380,6 +386,7 @@ real — not just "should work."
 | A product doesn't appear on the storefront after publishing | Check its `status` — only `published` rows are publicly readable; `draft` is correctly invisible, not a bug |
 | Trial activation fails with a constraint error | Working as designed — that member already has a trial license; the one-trial-per-user index is doing its job |
 | Trial Activated email never arrives, but activation itself succeeds | Working as designed if `RESEND_API_KEY`/`RESEND_FROM_EMAIL` aren't set yet — the endpoint responds `{ ok: true, sent: false }` and logs the reason server-side rather than failing the trial. Check Vercel's function logs for `api/notifications/trial-activated`, and confirm `RESEND_FROM_EMAIL`'s domain is verified in Resend's dashboard, not just the API key |
+| Hitting F5 (or opening a deep link like `/workspace/<slug>` directly) returns Vercel's `404: NOT_FOUND` | `vercel.json`'s SPA rewrite is missing or not deployed — confirm it exists at the repo root and redeploy; without it, only client-side navigation (`<Link>` clicks) works, since a real browser navigation/refresh hits Vercel's static hosting directly, before React Router ever runs |
 
 ---
 
