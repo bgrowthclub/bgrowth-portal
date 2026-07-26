@@ -13,6 +13,10 @@ interface WorkspaceSectionShellProps {
   children: ReactNode;
   isLast: boolean;
   onContinue: () => void;
+  /** Whether onContinue's save is currently in flight — disables the button and shows a loading state instead of navigating early. */
+  isSaving: boolean;
+  /** Set when that save fails — the member stays on this section until it succeeds. */
+  saveError: string | null;
 }
 
 export function WorkspaceSectionShell({
@@ -26,6 +30,8 @@ export function WorkspaceSectionShell({
   children,
   isLast,
   onContinue,
+  isSaving,
+  saveError,
 }: WorkspaceSectionShellProps) {
   return (
     <div className="card p-5 sm:p-7">
@@ -66,8 +72,13 @@ export function WorkspaceSectionShell({
         </div>
       )}
 
-      <div className="no-print mt-6 flex justify-end">
-        <Button onClick={onContinue} className="!bg-workspace-500 hover:!bg-workspace-600">
+      <div className="no-print mt-6 flex flex-col items-end gap-2">
+        {saveError && (
+          <p role="alert" className="text-sm font-medium text-red-500">
+            {saveError}
+          </p>
+        )}
+        <Button onClick={onContinue} isLoading={isSaving} className="!bg-workspace-500 hover:!bg-workspace-600">
           {isLast ? "Finish Workspace" : "Save & Continue"}
           <ArrowRight className="h-4 w-4" />
         </Button>

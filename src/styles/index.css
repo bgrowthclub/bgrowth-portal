@@ -43,6 +43,30 @@
   .badge {
     @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium;
   }
+
+  /* Opposite of .no-print below: content that only exists for the printed/
+     PDF output (WorkspacePrintSummary) and stays hidden during normal use. */
+  .print-only {
+    display: none;
+  }
+}
+
+/*
+ * "Download PDF" (WorkspaceRenderer.tsx) is the browser's native print
+ * dialog, same convention as the rest of the BGrowth ecosystem — no PDF
+ * library dependency. Interactive chrome (buttons, the accordion's
+ * currently-collapsed sections, tips) is marked .no-print and hidden here;
+ * .print-only (WorkspacePrintSummary, hidden on screen) is what actually
+ * prints, since it's the one place every section's values render together.
+ */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

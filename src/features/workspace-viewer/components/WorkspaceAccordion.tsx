@@ -14,6 +14,10 @@ interface WorkspaceAccordionProps {
   onContinue: (id: string) => void;
   onSectionValueChange: (sectionId: string, value: WorkspaceData[string]) => void;
   progressBySection: Record<string, SectionProgress>;
+  /** Whether the active section's "Save & Continue"/"Finish Workspace" click is currently saving. */
+  isContinueSaving: boolean;
+  /** Set when that save fails — shown on the active section so the member knows why they're still here. */
+  continueError: string | null;
 }
 
 function statusFor(progress: SectionProgress): { label: string; kind: WorkspaceStatusKind } {
@@ -30,6 +34,8 @@ export function WorkspaceAccordion({
   onContinue,
   onSectionValueChange,
   progressBySection,
+  isContinueSaving,
+  continueError,
 }: WorkspaceAccordionProps) {
   const totalSteps = content.sections.length;
 
@@ -53,6 +59,8 @@ export function WorkspaceAccordion({
               tip={section.tip}
               isLast={section.number === totalSteps}
               onContinue={() => onContinue(section.id)}
+              isSaving={isContinueSaving}
+              saveError={continueError}
             >
               <WorkspaceSectionFields section={section} data={data} onSectionValueChange={onSectionValueChange} />
             </WorkspaceSectionShell>
