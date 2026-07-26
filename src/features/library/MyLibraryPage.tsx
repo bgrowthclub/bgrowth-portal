@@ -102,6 +102,7 @@ export function MyLibraryPage() {
               key={workspace.id}
               workspace={workspace}
               userId={user.id}
+              displayName={(user.user_metadata?.full_name as string | undefined) ?? user.email ?? "A member"}
               instances={(instances ?? []).filter((instance) => instance.product_id === workspace.id)}
             />
           ))}

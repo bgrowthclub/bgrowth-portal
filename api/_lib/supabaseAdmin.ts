@@ -2,8 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../../src/types/database";
 
 /**
- * Service-role Supabase client for server-side Publishing Engine routes
- * only. Never import this from anything that ships to the browser — it
+ * Service-role Supabase client for server-side API routes only (Publishing
+ * Engine routes, and any other route needing service-role access, e.g.
+ * notifications/trial-review-request.ts). Never import this from anything
+ * that ships to the browser — it
  * bypasses Row Level Security entirely, which is exactly why it's confined
  * to /api (Vercel serverless functions run server-side, never bundled into
  * the Vite client build).

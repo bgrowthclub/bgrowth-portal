@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { WorkspaceWithAccess } from "@/types/workspace";
 import type { WorkspaceInstanceRow } from "@/types/database";
@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { BuyNowButton } from "@/components/ui/BuyNowButton";
 import { PromptDialog } from "@/components/ui/PromptDialog";
 import { workspaceInstanceService } from "@/services/workspaceInstanceService";
+import { notificationService } from "@/services/notificationService";
+import { ReviewPromptCard } from "@/features/reviews/components/ReviewPromptCard";
 
 function formatExpiry(expiresAt: string | null): string | null {
   if (!expiresAt) return null;
@@ -16,6 +18,8 @@ function formatExpiry(expiresAt: string | null): string | null {
 interface LibraryWorkspaceCardProps {
   workspace: WorkspaceWithAccess;
   userId: string;
+  /** Snapshotted onto a review at submission time — see reviewService.create. */
+  displayName: string;
   /** This Workspace's saved checklist instances only — MyLibraryPage groups the full list by product before passing it down. */
   instances: WorkspaceInstanceRow[];
 }
@@ -26,15 +30,26 @@ interface LibraryWorkspaceCardProps {
  * Workspaces instead. A Workspace never disappears from here just because
  * its trial expired — it stays visible with a Buy Now prompt instead.
  */
-export function LibraryWorkspaceCard({ workspace, userId, instances }: LibraryWorkspaceCardProps) {
+export function LibraryWorkspaceCard({ workspace, userId, displayName, instances }: LibraryWorkspaceCardProps) {
   const navigate = useNavigate();
   const canOpen = workspace.accessState === "trial" || workspace.accessState === "purchased";
   const isExpired = workspace.accessState === "expired";
+  const isPurchased = workspace.accessState === "purchased";
   const expiry = workspace.accessState === "trial" ? formatExpiry(workspace.license?.expires_at ?? null) : null;
 
   const [isNaming, setIsNaming] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // Lazy trigger for the one-time "trial expired, how was it?" email —
+  // there's no cron in this codebase, so the client fires this whenever it
+  // renders an expired trial with no request sent yet; the route itself
+  // enforces "only ever once" (see api/notifications/trial-review-request.ts).
+  useEffect(() => {
+    if (isExpired && workspace.license && !workspace.license.review_requested_at) {
+      void notificationService.sendTrialReviewRequestEmail({ userId, productId: workspace.id });
+    }
+  }, [isExpired, workspace.license, userId, workspace.id]);
 
   async function handleCreateInstance(label: string) {
     setIsCreating(true);
@@ -90,6 +105,17 @@ export function LibraryWorkspaceCard({ workspace, userId, instances }: LibraryWo
             <BuyNowButton product={workspace} />
           )}
         </div>
+
+        {(isExpired || isPurchased) && (
+          <div className="mt-4">
+            <ReviewPromptCard
+              userId={userId}
+              productId={workspace.id}
+              displayName={displayName}
+              createdFrom={isPurchased ? "purchase" : "trial"}
+            />
+          </div>
+        )}
 
         {canOpen && (
           <div className="mt-5 border-t border-navy-100/60 pt-4 dark:border-white/10">

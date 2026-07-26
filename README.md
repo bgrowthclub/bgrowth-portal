@@ -53,14 +53,22 @@ src/
     workspace-viewer/  WorkspaceRenderer — generic renderer for any published
                        Workspace JSON (see below), plus the access-gated
                        Viewer page/layout around it
+    reviews/      Product Reviews — one review per user per product (see
+                  Database schema below). ReviewSummary/ReviewList are
+                  self-contained (fetch by productId alone) and not wired
+                  into any card today, so they drop into a future dedicated
+                  Product Page with no rework. ReviewFormDialog/
+                  ReviewPromptCard are the Trial-journey write flow,
+                  rendered from library/LibraryWorkspaceCard once a trial
+                  expires or a Workspace is purchased.
     profile/      Personal info, licenses, trial expiration
   hooks/          cross-feature hooks (useTheme, useAsync)
   services/       cross-feature data access (supabaseClient, productService,
                   licenseService, userService, workspaceInstanceService,
-                  checkoutService, notificationService) — the only place
-                  Supabase queries (or, for checkout/notifications, the
-                  provider-agnostic service call) are written; features
-                  call these, never the client directly
+                  reviewService, checkoutService, notificationService) —
+                  the only place Supabase queries (or, for checkout/
+                  notifications, the provider-agnostic service call) are
+                  written; features call these, never the client directly
   types/          database.ts (mirrors the Supabase schema), workspace.ts
                   (derived/presentation types), workspaceContent.ts (the
                   Workspace JSON schema — mirrors BGrowth Studio's engine)
@@ -130,6 +138,8 @@ Required environment variables (server-side only — never prefix these with
 | `users` | Public profile row, 1:1 with `auth.users`, auto-created by a trigger on signup |
 | `licenses` | `type` (trial / purchased / lifetime), `status` (active / expired / revoked), `activated_at`, `expires_at` |
 | `workspace_instances` | Saved, named, filled-in checklist records per owned Workspace (e.g. one per client) — `label`, `data` (field values), `status` (only `in_progress` used today) — see `WORKSPACE_INSTANCES_ARCHITECTURE.md` |
+| `reviews` | One review per user per product (unique constraint) — `rating` (1-5), `title`, `comment`, `display_name` (snapshotted at submission, not a live join), `created_from` (`trial` / `purchase`, for future analytics). Publicly readable; writable only by a member who holds/held a license for that product. |
+| `product_review_summary` (view) | `average_rating`/`review_count` per product, aggregated in Postgres — read separately from the full review list (`reviewService.getSummary`) so a summary display scales independently of review volume. |
 
 Trial length is per-Workspace, not a platform-wide constant: `products.is_trial_eligible`
 gates whether a Workspace offers a trial at all, and `products.trial_duration`/

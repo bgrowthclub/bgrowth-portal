@@ -159,6 +159,8 @@ export type LicenseRow = {
   activated_at: string;
   expires_at: string | null;
   created_at: string;
+  /** Set once the one-time "trial expired, how was it?" review-request email has been sent — never re-sent after. Null until then. */
+  review_requested_at: string | null;
 };
 
 export type UserProfileRow = {
@@ -167,6 +169,42 @@ export type UserProfileRow = {
   full_name: string | null;
   has_used_trial: boolean;
   created_at: string;
+};
+
+/** Whether a review was submitted after a Trial or after a purchase — kept for future analytics, not read/branched on anywhere today. */
+export type ReviewCreatedFrom = "trial" | "purchase";
+
+/**
+ * A member's review of a product — belongs to the product itself, never to
+ * a saved checklist instance (see WorkspaceInstanceRow). One row per
+ * (user_id, product_id), enforced by a unique constraint. `display_name`
+ * is a snapshot at submission time (not a live join to `users`), so a
+ * review's byline stays stable even if the member later renames their
+ * profile.
+ */
+export type ReviewRow = {
+  id: string;
+  user_id: string;
+  product_id: string;
+  rating: number;
+  title: string;
+  comment: string;
+  display_name: string;
+  created_from: ReviewCreatedFrom;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * Aggregate rating/count for one product, read from the
+ * `product_review_summary` view — kept separate from ReviewRow so a
+ * summary display never requires fetching every review row (see
+ * reviewService.getSummary).
+ */
+export type ProductReviewSummaryRow = {
+  product_id: string;
+  average_rating: number;
+  review_count: number;
 };
 
 export type WorkspaceInstanceStatus = "in_progress" | "completed" | "archived";
@@ -342,8 +380,40 @@ export interface Database {
           },
         ];
       };
+      reviews: {
+        Row: ReviewRow;
+        Insert: Partial<ReviewRow> &
+          Pick<ReviewRow, "user_id" | "product_id" | "rating" | "title" | "comment" | "display_name" | "created_from">;
+        Update: Partial<ReviewRow>;
+        Relationships: [
+          {
+            foreignKeyName: "reviews_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reviews_product_id_fkey";
+            columns: ["product_id"];
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
-    Views: Record<string, never>;
+    Views: {
+      product_review_summary: {
+        Row: ProductReviewSummaryRow;
+        Relationships: [
+          {
+            foreignKeyName: "reviews_product_id_fkey";
+            columns: ["product_id"];
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+    };
     Functions: {
       publish_product: {
         Args: PublishProductArgs;

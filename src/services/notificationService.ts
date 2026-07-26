@@ -9,6 +9,11 @@ export interface TrialActivatedNotification {
   trialUnit: TrialUnit;
 }
 
+export interface TrialReviewRequestNotification {
+  userId: string;
+  productId: string;
+}
+
 /**
  * Provider-agnostic transactional notifications: callers never know or
  * care how (or whether) a notification actually gets delivered. The API
@@ -25,6 +30,24 @@ export const notificationService = {
   async sendTrialActivatedEmail(input: TrialActivatedNotification): Promise<void> {
     try {
       await fetch("/api/notifications/trial-activated", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+    } catch {
+      // Best-effort only — see class comment.
+    }
+  },
+
+  /**
+   * Fired lazily whenever the client renders an expired-trial license
+   * (LibraryWorkspaceCard) — there's no cron in this codebase, so this is
+   * the trigger instead. Safe to call repeatedly: the route behind it only
+   * ever sends once per license (see api/notifications/trial-review-request.ts).
+   */
+  async sendTrialReviewRequestEmail(input: TrialReviewRequestNotification): Promise<void> {
+    try {
+      await fetch("/api/notifications/trial-review-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),

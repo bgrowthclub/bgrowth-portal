@@ -67,10 +67,10 @@ that already exist. That step is Phase 2b, after the migrations run.
 
 Supabase's **SQL Editor** (left sidebar) is the simplest path — no CLI
 setup needed. Run each file's contents as its own query, top to bottom,
-**in this exact order** (each depends on the one before it). All eight are
+**in this exact order** (each depends on the one before it). All nine are
 purely additive: they only ever `create schema if not exists portal` and
-`create table`/`create function`/`grant` inside it — none of them read,
-alter, or drop anything in `public` or any LMS schema.
+`create table`/`create view`/`create function`/`grant` inside it — none of
+them read, alter, or drop anything in `public` or any LMS schema.
 
 1. `supabase/migrations/0001_init.sql` — creates `schema portal` if it
    doesn't already exist, then `portal.workspace_categories`,
@@ -114,10 +114,17 @@ alter, or drop anything in `public` or any LMS schema.
    `portal.workspace_instances` (saved, named, filled-in checklist records
    per owned Workspace — see `WORKSPACE_INSTANCES_ARCHITECTURE.md`) with
    its own RLS policies and grants.
+9. `supabase/migrations/0009_reviews.sql` — adds `portal.reviews` (one
+   review per user per product, RLS-public-readable, write-restricted to
+   members who hold/held a license for that product) plus the
+   `portal.product_review_summary` view (average rating/count per product,
+   read separately from the full review list) and
+   `portal.licenses.review_requested_at` (tracks the one-time trial-expiry
+   review-request email).
 
-**After running all eight, verify in the SQL Editor:**
+**After running all nine, verify in the SQL Editor:**
 ```sql
--- Should return 10 tables, all in the portal schema
+-- Should return 11 tables, all in the portal schema
 select table_name from information_schema.tables
 where table_schema = 'portal' order by table_name;
 
