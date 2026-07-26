@@ -43,29 +43,54 @@
   .badge {
     @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium;
   }
-
-  /* Opposite of .no-print below: content that only exists for the printed/
-     PDF output (WorkspacePrintSummary) and stays hidden during normal use. */
-  .print-only {
-    display: none;
-  }
 }
 
 /*
- * "Download PDF" (WorkspaceRenderer.tsx) is the browser's native print
- * dialog, same convention as the rest of the BGrowth ecosystem — no PDF
- * library dependency. Interactive chrome (buttons, the accordion's
- * currently-collapsed sections, tips) is marked .no-print and hidden here;
- * .print-only (WorkspacePrintSummary, hidden on screen) is what actually
- * prints, since it's the one place every section's values render together.
+ * Verbatim port of bgrowth-studio's src/index.css print rules — same
+ * container pattern, kept identical so "Print" (window.print, WorkspaceRenderer.tsx)
+ * and "Download PDF" (downloadElementAsPdf, src/lib/pdf.ts) behave the same
+ * in both apps. WorkspacePrintSummary is the one place every section's
+ * values render together (the live accordion only ever expands one at a
+ * time), so it's what both actions actually target.
+ *
+ * Deliberately NOT display:none on screen — html2canvas (which
+ * downloadElementAsPdf drives) can't rasterize a display:none element, so
+ * this stays laid out but invisible (0x0, overflow hidden, positioned off
+ * at 0,0) instead, and only reverts to normal static flow for an actual
+ * browser print.
  */
+.printable-summary-container {
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.printable-summary {
+  width: 800px;
+  background-color: #ffffff;
+  position: relative;
+}
+
 @media print {
   .no-print {
     display: none !important;
   }
 
-  .print-only {
-    display: block !important;
+  .printable-summary-container {
+    width: auto;
+    height: auto;
+    overflow: visible;
+    position: static;
+  }
+
+  .printable-summary {
+    position: static;
+    left: auto;
+    top: auto;
+    width: auto;
   }
 }
 

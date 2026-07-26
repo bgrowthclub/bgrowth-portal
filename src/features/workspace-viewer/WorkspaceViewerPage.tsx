@@ -92,6 +92,7 @@ export function WorkspaceViewerPage() {
           content={product.content}
           initialData={instance?.data as WorkspaceData | undefined}
           onSave={instance ? handleSaveInstance : undefined}
+          instanceLabel={instance?.label}
         />
       ) : (
         <div className="card flex min-h-[50vh] flex-col items-center justify-center gap-3 p-12 text-center">

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { Printer, Download } from "lucide-react";
 import type { WorkspaceContent, WorkspaceData } from "@/types/workspaceContent";
 import { applyWorkspaceTheme } from "@/lib/workspaceTheme";
+import { downloadElementAsPdf } from "@/lib/pdf";
 import { useWorkspaceProgress } from "../hooks/useWorkspaceProgress";
 import { WorkspaceAccordion } from "./WorkspaceAccordion";
 import { WorkspaceCompletionPanel } from "./WorkspaceCompletionPanel";
@@ -13,6 +15,8 @@ interface WorkspaceRendererProps {
   initialData?: WorkspaceData;
   /** Present only when this render is backed by a saved instance — shows a Save Checklist button that persists the current field values. */
   onSave?: (data: WorkspaceData) => Promise<void>;
+  /** The saved instance's label (e.g. a client/job name), if any — folded into the downloaded PDF's filename, same as Studio's clientOrJobRef. */
+  instanceLabel?: string;
 }
 
 /**
@@ -21,7 +25,7 @@ interface WorkspaceRendererProps {
  * branches on a specific product; a new Workspace published from BGrowth
  * Studio renders correctly the moment its JSON lands in `products.content`.
  */
-export function WorkspaceRenderer({ content, initialData, onSave }: WorkspaceRendererProps) {
+export function WorkspaceRenderer({ content, initialData, onSave, instanceLabel }: WorkspaceRendererProps) {
   const [data, setData] = useState<WorkspaceData>(initialData ?? {});
   const [activeId, setActiveId] = useState(content.sections[0]?.id ?? "");
   const [hasReachedEnd, setHasReachedEnd] = useState(false);
@@ -33,7 +37,9 @@ export function WorkspaceRenderer({ content, initialData, onSave }: WorkspaceRen
   // each other's loading/error state.
   const [isSectionSaving, setIsSectionSaving] = useState(false);
   const [sectionSaveError, setSectionSaveError] = useState<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const printableRef = useRef<HTMLDivElement>(null);
 
   const progress = useWorkspaceProgress(content, data);
 
@@ -94,6 +100,18 @@ export function WorkspaceRenderer({ content, initialData, onSave }: WorkspaceRen
     }
   }
 
+  /** Same downloadElementAsPdf (src/lib/pdf.ts) and target element (WorkspacePrintSummary, "printable-summary" class) as bgrowth-studio's handleDownloadPdf. */
+  async function handleDownloadPdf() {
+    if (!printableRef.current) return;
+    setIsGeneratingPdf(true);
+    try {
+      const filenameBase = `${content.brand.name.replace(/\s+/g, "-")}-${(instanceLabel ?? "").replace(/\s+/g, "-") || "Workspace"}`;
+      await downloadElementAsPdf(printableRef.current, `${filenameBase}.pdf`);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }
+
   return (
     <div ref={rootRef} className="flex flex-col gap-8">
       <div className="card flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
@@ -121,7 +139,12 @@ export function WorkspaceRenderer({ content, initialData, onSave }: WorkspaceRen
               </>
             )}
             <Button size="sm" variant="secondary" onClick={() => window.print()}>
-              Download PDF
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+            <Button size="sm" onClick={handleDownloadPdf} isLoading={isGeneratingPdf}>
+              <Download className="h-4 w-4" />
+              {isGeneratingPdf ? "Preparing…" : "Download PDF"}
             </Button>
           </div>
         </div>
@@ -146,11 +169,14 @@ export function WorkspaceRenderer({ content, initialData, onSave }: WorkspaceRen
         continueError={sectionSaveError}
       />
 
-      {/* Hidden on screen, shown only when printing — see .print-only in
-          src/styles/index.css. The accordion above only ever renders one
-          section's fields at a time, so this is what actually prints/exports
-          to PDF: every section's values, together. */}
-      <WorkspacePrintSummary content={content} data={data} />
+      {/* Off-screen but laid out (see .printable-summary-container in
+          src/styles/index.css) — both "Print" (window.print) and "Download
+          PDF" (downloadElementAsPdf) target this. The accordion above only
+          ever renders one section's fields at a time, so this is the one
+          place every section's values render together. */}
+      <div className="printable-summary-container">
+        <WorkspacePrintSummary ref={printableRef} content={content} data={data} percent={progress.percent} />
+      </div>
 
       <div className="no-print rounded-xl bg-navy-50 p-5 text-sm text-navy-500 dark:bg-white/5 dark:text-white/60">
         <p>

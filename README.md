@@ -15,6 +15,9 @@ Wix Studio storefront. It talks to its own Supabase project for auth and data.
   light mode via the `class` strategy)
 - React Router v6
 - Supabase (Authentication + Postgres database)
+- html2pdf.js (Workspace → PDF export, `src/lib/pdf.ts` — a verbatim port
+  of `bgrowth-studio`'s own `downloadElementAsPdf`, kept identical on
+  purpose so both apps produce the same PDF behavior)
 
 ## Getting started
 
@@ -75,7 +78,8 @@ src/
   lib/            workspaceAccess.ts (license → unlocked/locked/trial/
                   purchased/expired), workspaceIcons.ts (dynamic lucide-react
                   icon resolution), workspaceTheme.ts (per-Workspace runtime
-                  color theming)
+                  color theming), pdf.ts (downloadElementAsPdf — ported
+                  verbatim from bgrowth-studio's src/lib/pdf.ts)
 supabase/
   migrations/     SQL schema
   seed.sql        real product content (Notary + Cleaning Move-Out, copied
