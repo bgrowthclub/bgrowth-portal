@@ -1,6 +1,7 @@
 import type { ProductRow } from "@/types/database";
 import type { ProductFaqItem, ProductFeatureItem, ProductHowItWorksStep, ProductMarketingMetadata } from "@/types/productMarketing";
 import { FAQS } from "@/data/faqs";
+import { DEFAULT_HOW_IT_WORKS } from "@/data/howItWorks";
 
 function readMetadata(product: Pick<ProductRow, "metadata">): ProductMarketingMetadata {
   return (product.metadata ?? {}) as ProductMarketingMetadata;
@@ -32,10 +33,10 @@ export function getProductIncluded(product: Pick<ProductRow, "metadata">): strin
   return metadata.included && metadata.included.length > 0 ? metadata.included : null;
 }
 
-/** No fallback — omitted from the page entirely until Studio publishes this. */
-export function getProductHowItWorks(product: Pick<ProductRow, "metadata">): ProductHowItWorksStep[] | null {
+/** Falls back to the shared, product-agnostic DEFAULT_HOW_IT_WORKS — metadata-driven from day one, so a per-product override needs zero Product Page changes once Studio can author one. */
+export function getProductHowItWorks(product: Pick<ProductRow, "metadata">): ProductHowItWorksStep[] {
   const metadata = readMetadata(product);
-  return metadata.howItWorks && metadata.howItWorks.length > 0 ? metadata.howItWorks : null;
+  return metadata.howItWorks && metadata.howItWorks.length > 0 ? metadata.howItWorks : DEFAULT_HOW_IT_WORKS;
 }
 
 /** No fallback — omitted from the page entirely until Studio publishes this. */

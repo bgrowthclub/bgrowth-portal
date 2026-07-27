@@ -5,10 +5,9 @@ interface ProductHowItWorksProps {
   product: Pick<ProductRow, "metadata">;
 }
 
-/** Omitted entirely until Studio publishes metadata.howItWorks — no auto-derived fallback. */
+/** Always renders — getProductHowItWorks() falls back to the shared DEFAULT_HOW_IT_WORKS until Studio publishes a per-product metadata.howItWorks override. */
 export function ProductHowItWorks({ product }: ProductHowItWorksProps) {
   const steps = getProductHowItWorks(product);
-  if (!steps) return null;
 
   return (
     <section className="mx-auto max-w-4xl px-6 py-16">

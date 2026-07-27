@@ -7,7 +7,9 @@ import { licenseService } from "@/services/licenseService";
 import { deriveAccessState } from "@/lib/workspaceAccess";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { FetchErrorState } from "@/components/ui/FetchErrorState";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ProductHero } from "./components/ProductHero";
+import { ProductTrustBadges } from "./components/ProductTrustBadges";
 import { ProductLongDescription } from "./components/ProductLongDescription";
 import { ProductFeatures } from "./components/ProductFeatures";
 import { ProductIncluded } from "./components/ProductIncluded";
@@ -93,7 +95,9 @@ export function ProductPage() {
 
   return (
     <div>
+      <Breadcrumb items={[{ label: "Home", to: "/" }, { label: product.name }]} />
       <ProductHero product={product} isAuthenticated={Boolean(user)} />
+      <ProductTrustBadges product={product} />
       <ProductLongDescription product={product} />
       <ProductFeatures product={product} />
       <ProductIncluded product={product} />

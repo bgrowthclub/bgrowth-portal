@@ -27,6 +27,9 @@ export interface GenerateWelcomePdfInput {
   coverImageUrl: string | null;
   trialDuration: number | null;
   trialUnit: TrialUnit;
+  /** The publish_product() version this publish is about to become — computed by the caller before the RPC call, since generation happens before it (see api/publishing-engine/publish.ts). */
+  workspaceVersion: number;
+  publishedAt: Date;
 }
 
 /**
@@ -123,7 +126,18 @@ async function drawHeader(writer: PageWriter, input: GenerateWelcomePdfInput): P
     lineHeight: 16,
   });
 
-  writer.cursorY = PAGE_HEIGHT - bandHeight - 28;
+  writer.cursorY = PAGE_HEIGHT - bandHeight - 24;
+  const publishedLabel = input.publishedAt.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  writer.drawTextAt(`Workspace Version ${input.workspaceVersion} · Published ${publishedLabel}`, MARGIN, writer.cursorY, {
+    font: writer.bodyFont,
+    size: 9,
+    color: LIGHT_GRAY,
+  });
+  writer.cursorY -= 20;
 }
 
 async function drawStartWorkspaceSection(writer: PageWriter, input: GenerateWelcomePdfInput): Promise<void> {

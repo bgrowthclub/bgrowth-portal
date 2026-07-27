@@ -105,11 +105,14 @@ the Engine generates it itself, on every publish, from the same validated
 payload (name, short description, content sections, cover image, trial
 config, and any `metadata.outcomes` Studio has published — see
 `src/lib/productMarketing.ts`). It's an onboarding guide, not the product
-itself: welcome message, cover image, a numbered "how to get started" list
-derived from the Workspace's own sections, an optional "What You'll
-Accomplish" list, and a QR code + link pointing at the Product Page
-(`${PORTAL_PUBLIC_URL}/product/<slug>`, not the Workspace route directly —
-see `ProductPage`'s own ownership-detection redirect). Stored on
+itself: welcome message, cover image, a "Workspace Version N · Published
+&lt;date&gt;" stamp (version computed the same way `publish_product()`
+computes it — see `api/publishing-engine/publish.ts` — since generation has
+to happen before that RPC call returns the real value), a numbered "how to
+get started" list derived from the Workspace's own sections, an optional
+"What You'll Accomplish" list, and a QR code + link pointing at the Product
+Page (`${PORTAL_PUBLIC_URL}/product/<slug>`, not the Workspace route
+directly — see `ProductPage`'s own ownership-detection redirect). Stored on
 `products.welcome_pdf_url` (convenience column) and as a `welcome_pdf` row in
 `published_assets` (full history) — see `supabase/migrations/0010_welcome_pdf.sql`.
 

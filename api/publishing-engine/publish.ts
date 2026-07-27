@@ -124,6 +124,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
     }
 
+    // Mirrors publish_product()'s own version computation exactly (see
+    // supabase/migrations/0010_welcome_pdf.sql: `current_version + 1`, or 1
+    // for a first-ever publish) so the Welcome PDF's version stamp matches
+    // what the RPC call below is about to write — computed here, ahead of
+    // that call, since PDF generation needs to happen before we have the
+    // asset URL to pass into it.
+    const { data: existingProduct } = await supabase
+      .from("products")
+      .select("current_version")
+      .eq("studio_product_id", payload.studioProductId)
+      .maybeSingle();
+    const workspaceVersion = (existingProduct?.current_version ?? 0) + 1;
+
     // Only "workspace" ever reaches this point (see contentSchemasByType
     // above — any other content_type already returned 501), so
     // contentResult.data is safe to treat as WorkspaceContent here.
@@ -136,6 +149,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       coverImageUrl,
       trialDuration: payload.trialDuration ?? null,
       trialUnit: payload.trialUnit,
+      workspaceVersion,
+      publishedAt: new Date(),
     });
     const welcomePdfUrl = await uploadAssetToStorage(supabase, {
       studioProductId: payload.studioProductId,
