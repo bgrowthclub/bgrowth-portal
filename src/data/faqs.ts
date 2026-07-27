@@ -1,4 +1,4 @@
-import type { ProductFaqItem } from "@/types/productMarketing";
+import type { ProductFaqItem } from "../types/productMarketing.js";
 
 /**
  * Shared, product-agnostic FAQ — used as-is on the homepage (FaqSection)

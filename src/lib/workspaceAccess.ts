@@ -1,5 +1,5 @@
-import type { LicenseRow, ProductRow } from "@/types/database";
-import type { WorkspaceAccessState, WorkspaceWithAccess } from "@/types/workspace";
+import type { LicenseRow, ProductRow } from "../types/database.js";
+import type { WorkspaceAccessState, WorkspaceWithAccess } from "../types/workspace.js";
 
 /**
  * Derives the presentation-level access state for a product + its most

@@ -1,4 +1,4 @@
-import type { ProductHowItWorksStep } from "@/types/productMarketing";
+import type { ProductHowItWorksStep } from "../types/productMarketing.js";
 
 /**
  * The Product Page's default "How It Works" narrative — shown for every

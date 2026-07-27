@@ -1,7 +1,15 @@
-import type { ProductRow } from "@/types/database";
-import type { ProductFaqItem, ProductFeatureItem, ProductHowItWorksStep, ProductMarketingMetadata } from "@/types/productMarketing";
-import { FAQS } from "@/data/faqs";
-import { DEFAULT_HOW_IT_WORKS } from "@/data/howItWorks";
+// Relative imports (not the "@/" alias) — this file is reachable from
+// api/publishing-engine/publish.ts via generateWelcomePdf.ts, and Vercel's
+// serverless function runtime resolves modules through Node's native ESM
+// loader, which has no knowledge of the "@/" TypeScript path alias (that's
+// resolved only by Vite's dev/build server and by tsc for type-checking).
+// A "@/" import here compiles fine and passes tsc, but crashes at runtime
+// with ERR_MODULE_NOT_FOUND the moment any api/* route imports this file,
+// directly or transitively — see DEPLOYMENT.md.
+import type { ProductRow } from "../types/database.js";
+import type { ProductFaqItem, ProductFeatureItem, ProductHowItWorksStep, ProductMarketingMetadata } from "../types/productMarketing.js";
+import { FAQS } from "../data/faqs.js";
+import { DEFAULT_HOW_IT_WORKS } from "../data/howItWorks.js";
 
 function readMetadata(product: Pick<ProductRow, "metadata">): ProductMarketingMetadata {
   return (product.metadata ?? {}) as ProductMarketingMetadata;

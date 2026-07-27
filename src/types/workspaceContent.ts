@@ -20,4 +20,4 @@ export type {
   WorkspaceFooter,
   WorkspaceContent,
   WorkspaceData,
-} from "@/schemas/workspaceContent.schema";
+} from "../schemas/workspaceContent.schema.js";

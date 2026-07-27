@@ -1,4 +1,4 @@
-import type { TrialUnit } from "@/types/database";
+import type { TrialUnit } from "../types/database.js";
 
 /**
  * Single place that turns (trial_duration, trial_unit) into copy. Every
