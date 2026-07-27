@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
@@ -14,25 +13,6 @@ import { SavedChecklistsPanel } from "./components/SavedChecklistsPanel";
 
 export function MyLibraryPage() {
   const { user } = useAuth();
-
-  // TEMP DIAGNOSTIC — tracing notary-commission-workspace. product_versions
-  // has no client-readable RLS policy (service-role only by design), so the
-  // browser can never see a product's publish history on its own, no matter
-  // how the client code is instrumented. This calls a temporary
-  // service-role-backed route (api/_diagnostics/product-history.ts) to
-  // surface that history back here for logging — still "through the
-  // application," just via a server hop. Remove both once confirmed.
-  useEffect(() => {
-    fetch("/api/_diagnostics/product-history")
-      .then((r) => r.json())
-      .then((json) => {
-        console.log("[DIAGNOSTIC product-history] full response:", JSON.stringify(json, null, 2));
-        if (json.ok && json.products?.length === 0) {
-          console.warn("[DIAGNOSTIC product-history] No product in portal.products matches /notary/i at all — service-role search included.");
-        }
-      })
-      .catch((err) => console.error("[DIAGNOSTIC product-history] fetch failed:", err));
-  }, []);
 
   const {
     data: products,

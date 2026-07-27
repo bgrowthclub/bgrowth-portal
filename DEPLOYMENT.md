@@ -138,8 +138,15 @@ them read, alter, or drop anything in `public` or any LMS schema.
     creates `portal.grant_purchased_license()` — the one function
     `api/webhooks/stripe.ts` calls to turn a completed Stripe Checkout
     Session into access.
+13. `supabase/migrations/0013_trial_usage_tracking.sql` — fixes a real bug:
+    a purchase upgrades an existing trial license's `type` to `'purchased'`
+    in place, which silently broke the "one free trial per member, ever"
+    check (it counted rows where `type = 'trial'`). Wires up
+    `portal.users.has_used_trial` (present since `0001_init.sql`, never
+    used) via an insert trigger on `licenses` instead — an immutable flag,
+    independent of what a license's `type` later becomes.
 
-**After running all twelve, verify in the SQL Editor:**
+**After running all thirteen, verify in the SQL Editor:**
 ```sql
 -- Should return 12 rows: 11 base tables plus the product_review_summary view
 select table_name, table_type from information_schema.tables

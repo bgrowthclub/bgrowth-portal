@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { authService } from "./services/authService";
 import { useAuth } from "./AuthContext";
 import { FullPageSpinner } from "@/components/ui/Spinner";
-import { getPendingTrialProduct, clearPendingTrialProduct } from "@/lib/pendingTrial";
+import { getPendingAuthRedirect, clearPendingAuthRedirect } from "@/lib/pendingRedirect";
 
 export function VerifyEmailPage() {
   const location = useLocation();
@@ -22,15 +22,15 @@ export function VerifyEmailPage() {
   //
   // Router state can't survive this round trip (the email link may be
   // clicked later, possibly on a different device/tab than the one that
-  // signed up), so a pending "I wanted a trial for this product" intent
-  // set by ProductPage lives in localStorage instead — see
-  // src/lib/pendingTrial.ts. Absent that, land on Library as before.
+  // signed up), so a pending "here's where they were headed" intent set by
+  // ProductPage (Start Free Trial or Buy Now) lives in localStorage instead
+  // — see src/lib/pendingRedirect.ts. Absent that, land on Library as before.
   if (isCheckingSession) return <FullPageSpinner />;
   if (session) {
-    const pendingProductSlug = getPendingTrialProduct();
-    if (pendingProductSlug) {
-      clearPendingTrialProduct();
-      return <Navigate to={`/trial-selection?product=${encodeURIComponent(pendingProductSlug)}`} replace />;
+    const pendingRedirect = getPendingAuthRedirect();
+    if (pendingRedirect) {
+      clearPendingAuthRedirect();
+      return <Navigate to={pendingRedirect} replace />;
     }
     return <Navigate to="/library" replace />;
   }

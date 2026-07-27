@@ -3,7 +3,8 @@ import type { ProductRow } from "@/types/database";
 import { Button } from "@/components/ui/Button";
 import { BuyNowButton } from "@/components/ui/BuyNowButton";
 import { formatTrialSentence } from "@/lib/trial";
-import { setPendingTrialProduct } from "@/lib/pendingTrial";
+import { formatPrice } from "@/lib/pricing";
+import { setPendingAuthRedirect } from "@/lib/pendingRedirect";
 
 interface ProductHeroProps {
   product: ProductRow;
@@ -15,6 +16,7 @@ export function ProductHero({ product, isAuthenticated }: ProductHeroProps) {
     product.is_trial_eligible && product.trial_duration != null
       ? formatTrialSentence(product.trial_duration, product.trial_unit)
       : null;
+  const priceLabel = product.is_free ? "Free" : formatPrice(product.price_cents, product.currency);
 
   return (
     <section className="relative overflow-hidden bg-navy-900 text-white">
@@ -43,15 +45,27 @@ export function ProductHero({ product, isAuthenticated }: ProductHeroProps) {
                   <Button size="lg">Start Free Trial</Button>
                 </Link>
               ) : (
-                <Link
-                  to="/sign-up"
-                  state={{ from: { pathname: "/trial-selection", search: `?product=${product.slug}` } }}
-                  onClick={() => setPendingTrialProduct(product.slug)}
-                >
+                <Link to="/sign-up" onClick={() => setPendingAuthRedirect(`/trial-selection?product=${product.slug}`)}>
                   <Button size="lg">Start Free Trial</Button>
                 </Link>
               ))}
-            <BuyNowButton product={product} priceClassName="text-white/50" />
+            {isAuthenticated ? (
+              <BuyNowButton product={product} priceClassName="text-white/50" />
+            ) : (
+              // BuyNowButton needs a signed-in session to call
+              // api/checkout/create-session — send a logged-out visitor to
+              // sign up first (returning to this page) instead of letting
+              // them hit a dead-end "Sign in to purchase" error, matching
+              // the Start Free Trial CTA's own signed-out handling above.
+              <div>
+                <Link to="/sign-up" onClick={() => setPendingAuthRedirect(`/product/${product.slug}`)}>
+                  <Button size="sm" variant="secondary" className="w-full">
+                    {product.is_free ? "Get Started Free" : "Buy Now"}
+                  </Button>
+                </Link>
+                {priceLabel && <p className="mt-1 text-center text-xs text-white/50">{priceLabel}</p>}
+              </div>
+            )}
           </div>
         </div>
 

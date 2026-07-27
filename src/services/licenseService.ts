@@ -28,14 +28,18 @@ export const licenseService = {
     return (data as LicenseWithProduct[]) ?? [];
   },
 
+  /**
+   * Reads the immutable-once-true users.has_used_trial flag, set by a
+   * database trigger the moment any trial license is ever inserted (see
+   * supabase/migrations/0013_trial_usage_tracking.sql) — NOT a count of
+   * current type = 'trial' license rows, since a purchase upgrades that
+   * same row's type to 'purchased' in place (grant_purchased_license()),
+   * which would otherwise make a used trial invisible to this check.
+   */
   async hasUsedTrial(userId: string): Promise<boolean> {
-    const { count, error } = await supabase
-      .from("licenses")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("type", "trial");
+    const { data, error } = await supabase.from("users").select("has_used_trial").eq("id", userId).maybeSingle();
     if (error) throw error;
-    return (count ?? 0) > 0;
+    return data?.has_used_trial ?? false;
   },
 
   /**

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { sendEmail } from "../_lib/email/sendEmail.js";
 import { buildTrialReviewRequestEmail } from "../_lib/email/templates/trialReviewRequest.js";
+import { deriveAccessState } from "../../src/lib/workspaceAccess.js";
 
 const bodySchema = z.object({
   userId: z.string().uuid(),
@@ -33,14 +34,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: license, error: licenseError } = await supabase
       .from("licenses")
-      .select("id, status, expires_at, review_requested_at")
+      .select("*")
       .eq("user_id", userId)
       .eq("product_id", productId)
       .maybeSingle();
     if (licenseError) throw licenseError;
 
-    const isExpired =
-      !!license && (license.status === "expired" || (license.expires_at !== null && new Date(license.expires_at) < new Date()));
+    // Same access-state derivation the rest of the app reads through
+    // (src/lib/workspaceAccess.ts) — a purchased/lifetime license can never
+    // read as "expired" here either, matching everywhere else this
+    // distinction matters.
+    const isExpired = deriveAccessState(license) === "expired";
 
     if (!license || !isExpired || license.review_requested_at) {
       return res.status(200).json({ ok: true, sent: false });
