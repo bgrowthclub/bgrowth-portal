@@ -81,6 +81,7 @@ bundles or calls.
 | Workflow states | `draft` → `published` only — `ready_for_review`/`approved`/`archived` are valid but unused |
 | Assets | `workspace_json` (always) + `cover_image` (sent from Studio's Template Settings image picker, compressed client-side) + `welcome_pdf` (generated server-side by the Engine itself on every publish — see below, no Studio input required) — `thumbnail`/`product_pdf`/`social_image`/`marketplace_image`/`marketing_material` are valid `asset_type` values, none generated yet |
 | Trial configuration | Per-Workspace, set from Studio's Template Settings (`isTrialEligible`, `trialDuration`, `trialUnit`) — see `supabase/migrations/0005_workspace_trial_config.sql`. Studio's unit picker also shows Weeks/Months/Hours for a future release, but publishing with anything other than `days` is rejected client-side today, since only `days` has a Portal-side implementation |
+| Pricing | Per-Workspace, set from Studio's Template Settings (`isFree`, `price`, `stripePriceId`) — see `supabase/migrations/0011_pricing.sql`. Studio is the single source of truth; the Portal never requires manually setting a price in Supabase. `stripePriceId` has no authoring UI yet (entered manually once Commerce creates a real Stripe Price object) — until then the checkout endpoint builds a Stripe line item dynamically from `price_cents`/`currency` |
 | Catalog index | Populated on every publish; not yet read by any Portal page |
 | Callers | `bgrowth-studio`'s Checklist Builder ("Publish to Portal" button) |
 

@@ -6,8 +6,16 @@
 
 import type { WorkspaceContent } from "./workspaceContent";
 
-export type LicenseType = "trial" | "purchased" | "lifetime";
+/**
+ * The commercial model a license represents — deliberately separate from
+ * AccessPolicy (below), which answers a different question: does this
+ * license expire. "subscription"/"enterprise" are reserved for later, not
+ * created anywhere yet.
+ */
+export type LicenseType = "trial" | "purchased" | "subscription" | "enterprise";
 export type LicenseStatus = "active" | "expired" | "revoked";
+/** Whether a license's access expires by date at all — see deriveAccessState(). */
+export type AccessPolicy = "expiring" | "lifetime";
 
 /** Only "days" is supported today — adding a unit is a type + check-constraint change, nothing else. */
 export type TrialUnit = "days";
@@ -84,6 +92,13 @@ export type ProductRow = {
   content: WorkspaceContent | null;
   /** Auto-generated on every publish (see api/_lib/generateWelcomePdf.ts) — never Studio-authored, never "sticky" the way cover_image_url is. Null until the first publish completes. */
   welcome_pdf_url: string | null;
+  /** Whether this Workspace costs nothing at all — distinct from is_trial_eligible (a free trial of a paid product). */
+  is_free: boolean;
+  /** Null when is_free is true, or not yet configured by Studio for a non-free product. */
+  price_cents: number | null;
+  currency: string;
+  /** Nullable — set once Studio/Commerce creates a real Stripe Price object; the checkout endpoint falls back to dynamic price_data using price_cents/currency until then. */
+  stripe_price_id: string | null;
   created_at: string;
 };
 
@@ -158,6 +173,8 @@ export type LicenseRow = {
   product_id: string;
   type: LicenseType;
   status: LicenseStatus;
+  /** Whether expires_at is ever checked at all — see deriveAccessState(). A trial is always 'expiring'; a purchase is always 'lifetime' today. */
+  access_policy: AccessPolicy;
   activated_at: string;
   expires_at: string | null;
   created_at: string;
@@ -251,6 +268,16 @@ export type PublishProductArgs = {
   p_trial_duration?: number | null;
   p_trial_unit?: TrialUnit;
   p_welcome_pdf_url?: string | null;
+  p_is_free?: boolean;
+  p_price_cents?: number | null;
+  p_currency?: string;
+  p_stripe_price_id?: string | null;
+};
+
+/** Args/Returns for the grant_purchased_license() RPC — see supabase/migrations/0012_purchase_licenses.sql. Service-role only, called from api/webhooks/stripe.ts. */
+export type GrantPurchasedLicenseArgs = {
+  p_user_id: string;
+  p_product_id: string;
 };
 
 // Everything lives in the `portal` schema, not `public` — this database is
@@ -421,6 +448,10 @@ export interface Database {
       publish_product: {
         Args: PublishProductArgs;
         Returns: ProductRow;
+      };
+      grant_purchased_license: {
+        Args: GrantPurchasedLicenseArgs;
+        Returns: LicenseRow;
       };
     };
   };

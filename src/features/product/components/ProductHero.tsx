@@ -51,7 +51,7 @@ export function ProductHero({ product, isAuthenticated }: ProductHeroProps) {
                   <Button size="lg">Start Free Trial</Button>
                 </Link>
               ))}
-            <BuyNowButton product={product} label="Buy Now" />
+            <BuyNowButton product={product} priceClassName="text-white/50" />
           </div>
         </div>
 

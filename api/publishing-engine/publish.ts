@@ -70,6 +70,15 @@ const publishRequestSchema = z.object({
   trialUnit: z.enum(["days"]).default("days"),
   coverImage: imageInputSchema.optional(),
   assets: z.array(assetInputSchema).default([]),
+  isFree: z.boolean().default(false),
+  // Required whenever isFree is false — checked explicitly below rather
+  // than left to the RPC's own guard, so a bad payload gets a clear 422
+  // instead of a raw Postgres exception surfacing as a 500.
+  priceCents: z.number().int().nonnegative().nullable().optional(),
+  currency: z.string().default("usd"),
+  // Nullable — Studio doesn't create real Stripe Price objects yet; the
+  // checkout endpoint falls back to dynamic price_data from priceCents/currency.
+  stripePriceId: z.string().nullable().optional(),
 });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -94,6 +103,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(422).json({ ok: false, error: "Invalid publish payload", issues: parsed.error.issues });
     }
     const payload = parsed.data;
+
+    if (!payload.isFree && payload.priceCents == null) {
+      return res.status(422).json({ ok: false, error: "priceCents is required when isFree is false" });
+    }
 
     const contentSchema = contentSchemasByType[payload.contentType];
     if (!contentSchema) {
@@ -197,6 +210,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_trial_duration: payload.trialDuration ?? null,
       p_trial_unit: payload.trialUnit,
       p_welcome_pdf_url: welcomePdfUrl,
+      p_is_free: payload.isFree,
+      p_price_cents: payload.priceCents ?? null,
+      p_currency: payload.currency,
+      p_stripe_price_id: payload.stripePriceId ?? null,
     });
 
     if (error) throw error;
@@ -210,6 +227,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         version: product.current_version,
         coverImageUrl: product.cover_image_url,
         welcomePdfUrl: product.welcome_pdf_url,
+        isFree: product.is_free,
+        priceCents: product.price_cents,
+        currency: product.currency,
       },
     });
   } catch (err) {

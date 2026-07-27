@@ -141,6 +141,30 @@ marketing page — see `ProductPage`'s ownership check via
 points at this page (never directly at the Workspace route) specifically so
 that redirect applies uniformly.
 
+## The Purchase Flow
+
+`BuyNowButton` → `checkoutService.startCheckout()` → `api/checkout/create-session.ts`
+→ Stripe Checkout (or an instant grant for a free Workspace) →
+`api/webhooks/stripe.ts` → `portal.grant_purchased_license()`. Every step is
+real code, not a stub — `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` just
+aren't configured on this deployment yet by design (a real Stripe account
+gets connected later; see `.env.example` and `DEPLOYMENT.md`). Until then,
+Buy Now on a paid Workspace shows a clear "Checkout isn't set up yet" error
+instead of a broken redirect — a free Workspace's "Get Started Free" works
+today regardless, since it never touches Stripe.
+
+Pricing (`is_free`, `price_cents`, `currency`, `stripe_price_id`) is
+published data, same as everything else on `products` — Studio is the
+single source of truth (see the Publishing Engine below); the Portal never
+requires manually setting a price in Supabase. `src/lib/pricing.ts`'s
+`formatPrice()` is the one place cents become display copy, the same role
+`src/lib/trial.ts` plays for trial length.
+
+A purchase creates/upgrades exactly one `licenses` row per (member,
+product) — see "Database schema" below for how `type` (the commercial
+model) and `access_policy` (whether it expires) are deliberately separate
+dimensions.
+
 ## The BGrowth Publishing Engine
 
 The one write path into the catalog — see **[PUBLISHING_ENGINE.md](./PUBLISHING_ENGINE.md)**
@@ -159,14 +183,14 @@ Product Page — see below).
 | Table | Purpose |
 |---|---|
 | `workspace_categories` | Category taxonomy for Workspaces |
-| `products` | Catalog (name, description, cover image, `welcome_pdf_url`, `app_url`, `content`, `content_type`, `content_version`, `metadata`, `status`, `current_version`) |
+| `products` | Catalog (name, description, cover image, `welcome_pdf_url`, `app_url`, `content`, `content_type`, `content_version`, `metadata`, `status`, `current_version`, `is_free`, `price_cents`, `currency`, `stripe_price_id`) |
 | `product_versions` | Full snapshot per publish — history/rollback, service-role only |
 | `publication_destinations` | Lookup: portal (active), website/etsy/gumroad/academy (not yet) |
 | `product_destinations` | Per-destination publish ledger — status/version/external id, service-role only |
 | `published_assets` | Generation ledger — Workspace JSON + cover image + Welcome PDF today (the latter generated server-side by the Engine itself, see `PUBLISHING_ENGINE.md`), other PDF/social/marketplace asset types already valid |
 | `catalog_index` | Read-optimized, search-indexed projection of published products — public read, not yet queried by the Portal's own pages |
 | `users` | Public profile row, 1:1 with `auth.users`, auto-created by a trigger on signup |
-| `licenses` | `type` (trial / purchased / lifetime), `status` (active / expired / revoked), `activated_at`, `expires_at` |
+| `licenses` | `type` (trial / purchased / subscription / enterprise — the commercial model) is deliberately separate from `access_policy` (expiring / lifetime — whether `expires_at` is ever checked, see `deriveAccessState()`); plus `status` (active / expired / revoked), `activated_at`, `expires_at`. One row per (member, product) |
 | `workspace_instances` | Saved, named, filled-in checklist records per owned Workspace (e.g. one per client) — `label`, `data` (field values), `status` (only `in_progress` used today) — see `WORKSPACE_INSTANCES_ARCHITECTURE.md` |
 | `reviews` | One review per user per product (unique constraint) — `rating` (1-5), `title`, `comment`, `display_name` (snapshotted at submission, not a live join), `created_from` (`trial` / `purchase`, for future analytics). Publicly readable; writable only by a member who holds/held a license for that product. |
 | `product_review_summary` (view) | `average_rating`/`review_count` per product, aggregated in Postgres — read separately from the full review list (`reviewService.getSummary`) so a summary display scales independently of review volume. |
@@ -180,11 +204,16 @@ duration. See `src/lib/trial.ts` for the shared formatting helpers every
 trial-length display reads through.
 
 A partial unique index enforces "one trial license per user, ever" at the
-database level, not only in the client. Row Level Security is enabled on
-every table: members can only read their own `users`/`licenses` rows and can
-only insert a `trial`-type license for themselves (purchased/lifetime
-licenses are meant to be created by a trusted backend process once a real
-checkout exists); `products` is publicly readable only where
+database level (a member's single free trial is platform-wide, not
+per-Workspace), and a second unique index enforces "at most one license row
+per (member, product)" — a purchase upgrades an existing trial license for
+that same Workspace in place (`portal.grant_purchased_license()`, see the
+Purchase Flow above) rather than creating a second row. Row Level Security
+is enabled on every table: members can only read their own
+`users`/`licenses` rows and can only insert a `trial`-type license for
+themselves — a `purchased` license is only ever created by
+`grant_purchased_license()`, callable by the service-role client alone (see
+`api/webhooks/stripe.ts`); `products` is publicly readable only where
 `status = 'published'`; `product_versions`/`product_destinations`/
 `published_assets` have no public policy at all (service role only);
 `catalog_index` is publicly readable since, by construction, it only ever

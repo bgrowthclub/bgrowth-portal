@@ -11,13 +11,15 @@ import type { WorkspaceAccessState, WorkspaceWithAccess } from "@/types/workspac
 export function deriveAccessState(license: LicenseRow | null): WorkspaceAccessState {
   if (!license) return "locked";
 
-  const isExpired = license.status === "expired" || (license.expires_at !== null && new Date(license.expires_at) < new Date());
+  const isExpired =
+    license.status === "expired" ||
+    (license.access_policy === "expiring" && license.expires_at !== null && new Date(license.expires_at) < new Date());
   if (isExpired) return "expired";
 
   if (license.status !== "active") return "locked";
 
   if (license.type === "trial") return "trial";
-  return "purchased"; // "purchased" and "lifetime" both read as owned
+  return "purchased"; // purchased/subscription/enterprise all currently read as owned
 }
 
 export function attachAccessState(products: ProductRow[], licenses: LicenseRow[]): WorkspaceWithAccess[] {

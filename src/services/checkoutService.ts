@@ -1,3 +1,4 @@
+import { supabase } from "./supabaseClient";
 import type { ProductRow } from "@/types/database";
 
 export interface CheckoutSession {
@@ -7,21 +8,40 @@ export interface CheckoutSession {
 /**
  * Provider-agnostic checkout. Every caller only ever calls startCheckout()
  * and redirects the browser to the returned URL — nothing in the UI knows
- * or cares how that URL was produced. Today it just builds a link to the
- * BGrowth Website's checkout page (no payment provider is integrated yet,
- * and this is deliberately NOT built around Wix). Swapping in a real
- * provider later — e.g. Stripe Checkout Sessions, which are themselves
- * "create a session, redirect to session.url" — means replacing this
- * function's body only; no component that calls startCheckout() changes.
+ * or cares how that URL was produced. This calls api/checkout/create-session
+ * (server-side, holds the Stripe secret key), which creates a real Stripe
+ * Checkout Session for a paid Workspace or grants instant access for a free
+ * one — see BGrowth Commerce's "never import a payment provider SDK outside
+ * its own adapter" rule. Swapping providers later means replacing that
+ * endpoint's body only; nothing that calls startCheckout() changes.
  */
 export const checkoutService = {
   async startCheckout(product: Pick<ProductRow, "slug" | "name">): Promise<CheckoutSession> {
-    const baseUrl = import.meta.env.VITE_CHECKOUT_URL as string | undefined;
-    if (!baseUrl) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error("Sign in to purchase this Workspace.");
+    }
+
+    const response = await fetch("/api/checkout/create-session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ productSlug: product.slug }),
+    });
+
+    const json = (await response.json()) as { ok: boolean; checkoutUrl?: string; redirectUrl?: string; error?: string };
+    if (!response.ok || !json.ok) {
+      throw new Error(json.error ?? `Checkout isn't set up yet for "${product.name}".`);
+    }
+
+    const url = json.checkoutUrl ?? json.redirectUrl;
+    if (!url) {
       throw new Error(`Checkout isn't set up yet for "${product.name}".`);
     }
-    const url = new URL(baseUrl);
-    url.searchParams.set("product", product.slug);
-    return { url: url.toString() };
+    return { url };
   },
 };

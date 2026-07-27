@@ -126,8 +126,20 @@ them read, alter, or drop anything in `public` or any LMS schema.
     "sticky" — every publish regenerates a fresh Welcome PDF, see
     `PUBLISHING_ENGINE.md`) and republishes `publish_product()` to accept
     and store it, including a `welcome_pdf` row in `published_assets`.
+11. `supabase/migrations/0011_pricing.sql` — adds `portal.products.is_free` /
+    `price_cents` / `currency` / `stripe_price_id` and republishes
+    `publish_product()` to accept and store them (Studio is the single
+    source of truth for pricing, same as everything else it publishes).
+12. `supabase/migrations/0012_purchase_licenses.sql` — adds
+    `portal.licenses.access_policy` (separating "commercial model" from
+    "does this expire," see `README.md`), extends the `type` check
+    constraint to allow future `subscription`/`enterprise` values, adds a
+    unique constraint enforcing one license row per (member, product), and
+    creates `portal.grant_purchased_license()` — the one function
+    `api/webhooks/stripe.ts` calls to turn a completed Stripe Checkout
+    Session into access.
 
-**After running all ten, verify in the SQL Editor:**
+**After running all twelve, verify in the SQL Editor:**
 ```sql
 -- Should return 12 rows: 11 base tables plus the product_review_summary view
 select table_name, table_type from information_schema.tables
@@ -144,10 +156,10 @@ select key, is_active from portal.publication_destinations;
 -- Should return one row for the bucket
 select id, public from storage.buckets where id = 'portal-product-assets';
 
--- Should return the function, schema = 'portal'
+-- Should return both functions, schema = 'portal'
 select p.proname, n.nspname from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
-where p.proname = 'publish_product';
+where p.proname in ('publish_product', 'grant_purchased_license');
 ```
 If any of these come back empty, stop and re-run the corresponding
 migration before continuing — don't proceed to seeding on a partial schema.
@@ -241,7 +253,9 @@ increments); it won't create duplicate product rows, since it upserts on
    | `PUBLISHING_ENGINE_SECRET` | generate one now: `openssl rand -hex 32` — save this value, Studio needs the identical string in Phase 6 |
    | `RESEND_API_KEY` | from your Resend dashboard (resend.com/api-keys) — powers `api/notifications/*` (Trial Activated today; more notification types reuse the same key later) |
    | `RESEND_FROM_EMAIL` | e.g. `BGrowth <notifications@bgrowthclub.com>` — the address part **must** be on a domain verified in Resend (Domains tab), or every send is rejected. Resend's own sandbox address only delivers to the account owner, never real members |
-   | `PORTAL_PUBLIC_URL` | same as the production URL you'll copy in step 4 below — used to build the logo image and "Open Workspace" link inside notification emails, and the QR code/link in the auto-generated Welcome PDF (`api/publishing-engine/publish.ts`) — without it, publishing still succeeds but the Welcome PDF omits its "Start Your Workspace" section rather than emit a broken link |
+   | `PORTAL_PUBLIC_URL` | same as the production URL you'll copy in step 4 below — used to build the logo image and "Open Workspace" link inside notification emails, and the QR code/link in the auto-generated Welcome PDF (`api/publishing-engine/publish.ts`) — without it, publishing still succeeds but the Welcome PDF omits its "Start Your Workspace" section rather than emit a broken link. Also used by `api/checkout/create-session.ts` to build Stripe's success/cancel redirect URLs — without it, Buy Now on a paid Workspace shows a clear error instead of starting checkout |
+   | `STRIPE_SECRET_KEY` | Optional for now — the purchase flow (`api/checkout/create-session.ts`) ships as real, working code, but isn't required to deploy. Add it once you've connected a real Stripe account; until then, a free Workspace's "Get Started Free" still works (it never touches Stripe), and a paid Workspace's Buy Now shows "Checkout isn't set up yet" instead of failing |
+   | `STRIPE_WEBHOOK_SECRET` | Same "optional for now" note as above — needed by `api/webhooks/stripe.ts` to verify that a `checkout.session.completed` event genuinely came from Stripe. Get it from the Stripe Dashboard after adding a webhook endpoint pointed at `<your-portal-domain>/api/webhooks/stripe` listening for `checkout.session.completed` |
 
 4. Deploy. Once it's live, **copy the production URL** Vercel assigns
    (`https://your-project.vercel.app`, or your custom domain if you attach
@@ -392,6 +406,8 @@ real — not just "should work."
 | Trial activation fails with a constraint error | Working as designed — that member already has a trial license; the one-trial-per-user index is doing its job |
 | Trial Activated email never arrives, but activation itself succeeds | Working as designed if `RESEND_API_KEY`/`RESEND_FROM_EMAIL` aren't set yet — the endpoint responds `{ ok: true, sent: false }` and logs the reason server-side rather than failing the trial. Check Vercel's function logs for `api/notifications/trial-activated`, and confirm `RESEND_FROM_EMAIL`'s domain is verified in Resend's dashboard, not just the API key |
 | Hitting F5 (or opening a deep link like `/workspace/<slug>` directly) returns Vercel's `404: NOT_FOUND` | `vercel.json`'s SPA rewrite is missing or not deployed — confirm it exists at the repo root and redeploy; without it, only client-side navigation (`<Link>` clicks) works, since a real browser navigation/refresh hits Vercel's static hosting directly, before React Router ever runs |
+| Buy Now on a paid Workspace shows "Checkout isn't set up yet" | Working as designed until `STRIPE_SECRET_KEY` is configured (see Phase 5) — a free Workspace's "Get Started Free" is unaffected |
+| A member paid via Stripe but never got access | Check the Stripe Dashboard's webhook logs for a failed delivery to `/api/webhooks/stripe`, and confirm `STRIPE_WEBHOOK_SECRET` matches the endpoint's signing secret exactly; also check Vercel's function logs for `api/webhooks/stripe` for a `grant_purchased_license` error |
 
 ---
 
@@ -409,6 +425,8 @@ PUBLISHING_ENGINE_SECRET=
 RESEND_API_KEY=
 RESEND_FROM_EMAIL=
 PORTAL_PUBLIC_URL=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
 ```
 
 **bgrowth-studio (Vercel):**
