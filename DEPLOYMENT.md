@@ -145,8 +145,18 @@ them read, alter, or drop anything in `public` or any LMS schema.
     `portal.users.has_used_trial` (present since `0001_init.sql`, never
     used) via an insert trigger on `licenses` instead — an immutable flag,
     independent of what a license's `type` later becomes.
+14. `supabase/migrations/0014_grant_hardening.sql` — production-readiness
+    audit finding: `portal.users`/`portal.reviews` had blanket, column-
+    unrestricted `UPDATE` grants to `authenticated`, relying on RLS's
+    `auth.uid() = user_id` alone — which proves ownership of the row, not
+    which columns a client is allowed to change. Revokes the (unused)
+    `users` grant entirely, and restricts `reviews` to exactly the columns
+    `reviewService.update()` actually touches (`rating`, `title`,
+    `comment`, `updated_at`) — closing a path where a member could
+    otherwise reset their own `has_used_trial` flag, or rewrite a review's
+    `product_id`/`display_name`/`created_from` after submission.
 
-**After running all thirteen, verify in the SQL Editor:**
+**After running all fourteen, verify in the SQL Editor:**
 ```sql
 -- Should return 12 rows: 11 base tables plus the product_review_summary view
 select table_name, table_type from information_schema.tables

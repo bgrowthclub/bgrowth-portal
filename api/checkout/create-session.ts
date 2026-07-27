@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import Stripe from "stripe";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { deriveAccessState } from "../../src/lib/workspaceAccess.js";
 
 const bodySchema = z.object({
   productSlug: z.string().min(1),
@@ -51,6 +52,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (productError) throw productError;
     if (!product) {
       return res.status(404).json({ ok: false, error: "This Workspace isn't available." });
+    }
+
+    // Ownership check — the Product Page/Library UI already hide Buy Now
+    // once a member owns a Workspace, but that's client-side only. Without
+    // this, a stale tab or a direct call here could create a second paid
+    // Stripe session (or a redundant free grant) for something already
+    // owned. Redirect straight into the Workspace instead of erroring —
+    // reuses the exact success shape the free-Workspace grant below
+    // already returns, so no client changes are needed.
+    const { data: existingLicense, error: existingLicenseError } = await supabase
+      .from("licenses")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("product_id", product.id)
+      .maybeSingle();
+    if (existingLicenseError) throw existingLicenseError;
+
+    const existingAccessState = deriveAccessState(existingLicense);
+    if (existingAccessState === "trial" || existingAccessState === "purchased") {
+      return res.status(200).json({ ok: true, redirectUrl: `/workspace/${product.slug}` });
     }
 
     // Free Workspaces skip Stripe entirely — nothing to charge, so grant
