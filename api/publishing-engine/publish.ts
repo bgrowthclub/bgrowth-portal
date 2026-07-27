@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { requirePublishingEngineAuth } from "../_lib/requirePublishingEngineAuth.js";
 import { uploadAssetToStorage } from "../_lib/uploadAsset.js";
 import { generateWelcomePdf } from "../_lib/generateWelcomePdf.js";
+import { pruneOldAssets } from "../_lib/pruneOldAssets.js";
 import { workspaceContentSchema } from "../../src/schemas/workspaceContent.schema.js";
 import type { AssetType, ContentType, PublicationDestinationKey, PublicationStatus } from "../../src/types/database";
 
@@ -132,17 +133,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = getSupabaseAdmin();
 
     let coverImageUrl: string | null = null;
+    let coverImageStoragePath: string | null = null;
+    let coverImageSizeBytes: number | null = null;
     if (payload.coverImage) {
-      coverImageUrl =
-        "url" in payload.coverImage
-          ? payload.coverImage.url
-          : await uploadAssetToStorage(supabase, {
-              studioProductId: payload.studioProductId,
-              pathPrefix: "covers",
-              base64: payload.coverImage.base64,
-              mimeType: payload.coverImage.mimeType,
-              fileExtension: payload.coverImage.fileExtension,
-            });
+      if ("url" in payload.coverImage) {
+        coverImageUrl = payload.coverImage.url;
+      } else {
+        const uploaded = await uploadAssetToStorage(supabase, {
+          studioProductId: payload.studioProductId,
+          pathPrefix: "covers",
+          base64: payload.coverImage.base64,
+          mimeType: payload.coverImage.mimeType,
+          fileExtension: payload.coverImage.fileExtension,
+        });
+        coverImageUrl = uploaded.url;
+        coverImageStoragePath = uploaded.path;
+        coverImageSizeBytes = uploaded.sizeBytes;
+      }
     }
 
     // Generating the Welcome Guide is best-effort, not part of the
@@ -153,6 +160,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // isolated in its own try/catch specifically so a failure here can't
     // surface as an unhandled crash in the handler's outer catch either.
     let welcomePdfUrl: string | null = null;
+    let welcomePdfStoragePath: string | null = null;
+    let welcomePdfSizeBytes: number | null = null;
     try {
       // Mirrors publish_product()'s own version computation exactly (see
       // supabase/migrations/0010_welcome_pdf.sql: `current_version + 1`,
@@ -183,30 +192,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         workspaceVersion,
         publishedAt: new Date(),
       });
-      welcomePdfUrl = await uploadAssetToStorage(supabase, {
+      const uploaded = await uploadAssetToStorage(supabase, {
         studioProductId: payload.studioProductId,
         pathPrefix: "welcome_pdf",
         base64: Buffer.from(welcomePdfBytes).toString("base64"),
         mimeType: "application/pdf",
         fileExtension: "pdf",
       });
+      welcomePdfUrl = uploaded.url;
+      welcomePdfStoragePath = uploaded.path;
+      welcomePdfSizeBytes = uploaded.sizeBytes;
     } catch (welcomePdfError) {
       console.error("[publishing-engine/publish] Welcome PDF generation failed, publishing without it:", welcomePdfError);
       welcomePdfUrl = null;
+      welcomePdfStoragePath = null;
+      welcomePdfSizeBytes = null;
     }
 
     const resolvedAssets = await Promise.all(
       payload.assets.map(async (asset) => {
         if (asset.url) return { assetType: asset.assetType, url: asset.url, mimeType: asset.mimeType, metadata: asset.metadata };
         if (asset.base64) {
-          const url = await uploadAssetToStorage(supabase, {
+          const uploaded = await uploadAssetToStorage(supabase, {
             studioProductId: payload.studioProductId,
             pathPrefix: asset.assetType,
             base64: asset.base64,
             mimeType: asset.mimeType ?? "application/octet-stream",
             fileExtension: asset.fileExtension ?? "bin",
           });
-          return { assetType: asset.assetType, url, mimeType: asset.mimeType, metadata: asset.metadata };
+          return {
+            assetType: asset.assetType,
+            url: uploaded.url,
+            storagePath: uploaded.path,
+            sizeBytes: uploaded.sizeBytes,
+            mimeType: asset.mimeType,
+            metadata: asset.metadata,
+          };
         }
         return { assetType: asset.assetType, metadata: asset.metadata };
       }),
@@ -236,9 +257,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_price_cents: payload.priceCents ?? null,
       p_currency: payload.currency,
       p_stripe_price_id: payload.stripePriceId ?? null,
+      p_cover_image_storage_path: coverImageStoragePath,
+      p_cover_image_size_bytes: coverImageSizeBytes,
+      p_welcome_pdf_storage_path: welcomePdfStoragePath,
+      p_welcome_pdf_size_bytes: welcomePdfSizeBytes,
     });
 
     if (error) throw error;
+
+    // Retention-window cleanup — only ever runs AFTER the new version above
+    // has already committed successfully, so the previous assets are never
+    // removed until their replacement genuinely exists. Best-effort: logs
+    // and continues on failure rather than failing a publish that already
+    // succeeded (see api/_lib/pruneOldAssets.ts).
+    await pruneOldAssets(supabase, product.id);
 
     return res.status(200).json({
       ok: true,

@@ -155,8 +155,20 @@ them read, alter, or drop anything in `public` or any LMS schema.
     `comment`, `updated_at`) — closing a path where a member could
     otherwise reset their own `has_used_trial` flag, or rewrite a review's
     `product_id`/`display_name`/`created_from` after submission.
+15. `supabase/migrations/0015_asset_lifecycle.sql` — adds
+    `portal.published_assets.deleted_from_storage_at`, republishes
+    `publish_product()` to store `storage_path`/`size_bytes` for the cover
+    image and Welcome PDF (previously-unused columns), and adds
+    `portal.get_prunable_assets()` / `portal.mark_assets_deleted()`
+    (retention-window Storage cleanup, called from
+    `api/_lib/pruneOldAssets.ts` after every publish/archive),
+    `portal.archive_product()` (the Unpublish action, called from the new
+    `api/publishing-engine/archive.ts`), and `portal.delete_draft_product()`
+    (a guarded hard-delete primitive with no caller yet — see
+    `PUBLISHING_ENGINE.md`'s "Asset lifecycle & Archive" section for the
+    full design).
 
-**After running all fourteen, verify in the SQL Editor:**
+**After running all fifteen, verify in the SQL Editor:**
 ```sql
 -- Should return 12 rows: 11 base tables plus the product_review_summary view
 select table_name, table_type from information_schema.tables
@@ -173,10 +185,13 @@ select key, is_active from portal.publication_destinations;
 -- Should return one row for the bucket
 select id, public from storage.buckets where id = 'portal-product-assets';
 
--- Should return both functions, schema = 'portal'
+-- Should return all six functions, schema = 'portal'
 select p.proname, n.nspname from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
-where p.proname in ('publish_product', 'grant_purchased_license');
+where p.proname in (
+  'publish_product', 'grant_purchased_license', 'archive_product',
+  'get_prunable_assets', 'mark_assets_deleted', 'delete_draft_product'
+);
 ```
 If any of these come back empty, stop and re-run the corresponding
 migration before continuing — don't proceed to seeding on a partial schema.

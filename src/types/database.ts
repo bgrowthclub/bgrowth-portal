@@ -150,6 +150,8 @@ export type PublishedAssetRow = {
   size_bytes: number | null;
   metadata: Record<string, unknown>;
   created_at: string;
+  /** Set once the underlying Storage object has been pruned (retention window or archive cleanup) — the row itself is never deleted, so this is the one field that distinguishes "still downloadable" from "audit-trail only." Null until then. */
+  deleted_from_storage_at: string | null;
 };
 
 export type CatalogIndexRow = {
@@ -264,7 +266,7 @@ export type PublishProductArgs = {
   p_published_by?: string;
   p_change_notes?: string | null;
   p_is_trial_eligible?: boolean;
-  p_assets?: Array<{ assetType: AssetType; url?: string; mimeType?: string; sizeBytes?: number; metadata?: Record<string, unknown> }>;
+  p_assets?: Array<{ assetType: AssetType; url?: string; storagePath?: string; mimeType?: string; sizeBytes?: number; metadata?: Record<string, unknown> }>;
   p_trial_duration?: number | null;
   p_trial_unit?: TrialUnit;
   p_welcome_pdf_url?: string | null;
@@ -272,12 +274,37 @@ export type PublishProductArgs = {
   p_price_cents?: number | null;
   p_currency?: string;
   p_stripe_price_id?: string | null;
+  p_cover_image_storage_path?: string | null;
+  p_cover_image_size_bytes?: number | null;
+  p_welcome_pdf_storage_path?: string | null;
+  p_welcome_pdf_size_bytes?: number | null;
 };
 
 /** Args/Returns for the grant_purchased_license() RPC — see supabase/migrations/0012_purchase_licenses.sql. Service-role only, called from api/webhooks/stripe.ts. */
 export type GrantPurchasedLicenseArgs = {
   p_user_id: string;
   p_product_id: string;
+};
+
+/** Args/Returns for archive_product() — see supabase/migrations/0015_asset_lifecycle.sql. Service-role only, called from api/publishing-engine/archive.ts. */
+export type ArchiveProductArgs = {
+  p_studio_product_id: string;
+  p_published_by?: string;
+};
+
+/** Args/Returns for get_prunable_assets() — see supabase/migrations/0015_asset_lifecycle.sql. Service-role only, called from api/_lib/pruneOldAssets.ts. */
+export type GetPrunableAssetsArgs = {
+  p_product_id: string;
+};
+
+/** Args/Returns for mark_assets_deleted() — see supabase/migrations/0015_asset_lifecycle.sql. Service-role only, called from api/_lib/pruneOldAssets.ts. */
+export type MarkAssetsDeletedArgs = {
+  p_asset_ids: string[];
+};
+
+/** Args/Returns for delete_draft_product() — see supabase/migrations/0015_asset_lifecycle.sql. Guarded to never-published, license-free drafts; no caller exists yet. */
+export type DeleteDraftProductArgs = {
+  p_studio_product_id: string;
 };
 
 // Everything lives in the `portal` schema, not `public` — this database is
@@ -452,6 +479,22 @@ export interface Database {
       grant_purchased_license: {
         Args: GrantPurchasedLicenseArgs;
         Returns: LicenseRow;
+      };
+      archive_product: {
+        Args: ArchiveProductArgs;
+        Returns: ProductRow;
+      };
+      get_prunable_assets: {
+        Args: GetPrunableAssetsArgs;
+        Returns: PublishedAssetRow[];
+      };
+      mark_assets_deleted: {
+        Args: MarkAssetsDeletedArgs;
+        Returns: void;
+      };
+      delete_draft_product: {
+        Args: DeleteDraftProductArgs;
+        Returns: void;
       };
     };
   };

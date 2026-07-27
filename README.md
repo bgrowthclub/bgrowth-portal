@@ -168,9 +168,11 @@ dimensions.
 ## The BGrowth Publishing Engine
 
 The one write path into the catalog — see **[PUBLISHING_ENGINE.md](./PUBLISHING_ENGINE.md)**
-for the full architecture, governing principles, and extension points. It's
-documented as its own core platform service, not a Portal feature, even
-though its code currently lives in this repo (`api/publishing-engine/`).
+for the full architecture, governing principles, extension points, and the
+full publishing lifecycle (Draft → Publish → Republish → Archive, owned
+entirely by Studio). It's documented as its own core platform service, not
+a Portal feature, even though its code currently lives in this repo
+(`api/publishing-engine/`).
 
 Required environment variables (server-side only — never prefix these with
 `VITE_`, that would ship them to the browser; see `.env.example`):
@@ -187,7 +189,7 @@ Product Page — see below).
 | `product_versions` | Full snapshot per publish — history/rollback, service-role only |
 | `publication_destinations` | Lookup: portal (active), website/etsy/gumroad/academy (not yet) |
 | `product_destinations` | Per-destination publish ledger — status/version/external id, service-role only |
-| `published_assets` | Generation ledger — Workspace JSON + cover image + Welcome PDF today (the latter generated server-side by the Engine itself, see `PUBLISHING_ENGINE.md`), other PDF/social/marketplace asset types already valid |
+| `published_assets` | Generation ledger — Workspace JSON + cover image + Welcome PDF today (the latter generated server-side by the Engine itself, see `PUBLISHING_ENGINE.md`), other PDF/social/marketplace asset types already valid. Rows are never deleted — `deleted_from_storage_at` marks once the underlying Storage object has been pruned by the retention-window cleanup, so history stays a complete audit trail even after a file is gone |
 | `catalog_index` | Read-optimized, search-indexed projection of published products — public read, not yet queried by the Portal's own pages |
 | `users` | Public profile row, 1:1 with `auth.users`, auto-created by a trigger on signup. `has_used_trial` is set once, permanently, by a trigger on `licenses` insert — the source of truth for "has this member ever activated a trial," independent of what that license's `type` later becomes (see `licenseService.hasUsedTrial()`) |
 | `licenses` | `type` (trial / purchased / subscription / enterprise — the commercial model) is deliberately separate from `access_policy` (expiring / lifetime — whether `expires_at` is ever checked, see `deriveAccessState()`); plus `status` (active / expired / revoked), `activated_at`, `expires_at`. One row per (member, product) |

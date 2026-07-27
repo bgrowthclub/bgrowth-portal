@@ -78,12 +78,13 @@ bundles or calls.
 |---|---|
 | Content type | `workspace` only — validated against `src/schemas/workspaceContent.schema.ts` |
 | Destination | `portal` only — `website`/`etsy`/`gumroad`/`academy` exist as inactive rows in `publication_destinations` |
-| Workflow states | `draft` → `published` only — `ready_for_review`/`approved`/`archived` are valid but unused |
+| Workflow states | `draft` → `published` → `archived` — `ready_for_review`/`approved` are valid but unused. `draft` is a valid RPC value but nothing in Studio ever sends it (its "Publish to Portal" action always sends `published`), so no product ever reaches the Portal in `draft` status today |
 | Assets | `workspace_json` (always) + `cover_image` (sent from Studio's Template Settings image picker, compressed client-side) + `welcome_pdf` (generated server-side by the Engine itself on every publish — see below, no Studio input required) — `thumbnail`/`product_pdf`/`social_image`/`marketplace_image`/`marketing_material` are valid `asset_type` values, none generated yet |
 | Trial configuration | Per-Workspace, set from Studio's Template Settings (`isTrialEligible`, `trialDuration`, `trialUnit`) — see `supabase/migrations/0005_workspace_trial_config.sql`. Studio's unit picker also shows Weeks/Months/Hours for a future release, but publishing with anything other than `days` is rejected client-side today, since only `days` has a Portal-side implementation |
 | Pricing | Per-Workspace, set from Studio's Template Settings (`isFree`, `price`, `stripePriceId`) — see `supabase/migrations/0011_pricing.sql`. Studio is the single source of truth; the Portal never requires manually setting a price in Supabase. `stripePriceId` has no authoring UI yet (entered manually once Commerce creates a real Stripe Price object) — until then the checkout endpoint builds a Stripe line item dynamically from `price_cents`/`currency` |
+| Asset lifecycle | Retention-window pruning after every publish/archive (keeps only the current + previous version's Storage files; older `published_assets` rows stay as an audit trail with a stale `url`), plus a dedicated Archive (Unpublish) endpoint — see "Asset lifecycle & Archive" below |
 | Catalog index | Populated on every publish; not yet read by any Portal page |
-| Callers | `bgrowth-studio`'s Checklist Builder ("Publish to Portal" button) |
+| Callers | `bgrowth-studio`'s Checklist Builder ("Publish to Portal" / "Unpublish" buttons) |
 
 ## Architecture
 
@@ -123,6 +124,63 @@ Page (`${PORTAL_PUBLIC_URL}/product/<slug>`, not the Workspace route
 directly — see `ProductPage`'s own ownership-detection redirect). Stored on
 `products.welcome_pdf_url` (convenience column) and as a `welcome_pdf` row in
 `published_assets` (full history) — see `supabase/migrations/0010_welcome_pdf.sql`.
+
+## Asset lifecycle & Archive
+
+The full publishing lifecycle is **Draft → Publish → Republish → Archive
+(Unpublish)**, owned entirely by Studio's Template Builder ("Publish to
+Portal" / "Unpublish" buttons, with a confirm dialog before archiving).
+
+**Retention-window pruning.** Every publish creates a new version, and
+every version's cover image / Welcome PDF gets its own uniquely-named
+Storage object — nothing ever overwrites a prior upload, so without
+cleanup, every republish leaves the previous version's files behind
+forever. `api/_lib/pruneOldAssets.ts` closes this: called *after* a
+publish or archive has already committed successfully (never before —
+the replacement must exist before anything old is removed), it deletes
+the Storage object for any asset older than the current version minus
+one, i.e. **only the current and previous version's assets stay
+downloadable**. The `published_assets` **rows** for older versions are
+never deleted — only `deleted_from_storage_at` gets stamped on them —
+so `product_versions`/`published_assets` remain a complete audit trail;
+an old version's `url` just 404s once its file is gone. A failure here
+is logged and otherwise ignored (see `pruneOldAssets.ts`'s own
+try/catch) — it never fails a publish/archive that already succeeded,
+and anything not yet pruned stays eligible on the next run.
+
+**Archive (Unpublish)** (`api/publishing-engine/archive.ts`,
+`portal.archive_product()`) removes a Workspace from the public catalog
+and blocks new purchases/trials — already guaranteed by every discovery
+read path filtering on `status = 'published'`
+(`productService.fetchPublished`/`fetchTrialEligible`, `ProductPage`,
+`api/checkout/create-session.ts`) — while leaving every existing
+license, review, and version snapshot completely untouched, and
+existing customers' access unaffected (`deriveAccessState()` never
+reads `products.status`). Deliberately **not** a call to `/publish` with
+`status: 'archived'`: Studio's draft state doesn't persist pricing/trial
+config between sessions (same gap as `0011_pricing.sql`'s comment on
+`is_free`/`trial_duration`), so reusing the general publish path for a
+"just hide this" action risks silently overwriting real values with a
+reopened draft's stale defaults. `archive_product()` touches only
+status/version/catalog visibility, reading every other field back from
+the existing row rather than having Studio re-supply it.
+
+**Hard delete** (`portal.delete_draft_product()`) exists as a
+safety-checked primitive — guarded to a product that has `status =
+'draft'`, has never had a `published` version in its `product_versions`
+history, and has zero rows in `licenses` — but has no caller yet, since
+Studio's publish action never sends `status: 'draft'` today. Ready for
+whenever a genuine "delete this never-published draft" action gets
+built, without needing the safety checks re-derived at that point.
+
+**Assets Manager (architecture prepared, not built).** The data model is
+already shaped for an admin view over `published_assets` — per-asset
+`storage_path`/`size_bytes` (now populated on every upload, previously
+tracked columns that nothing wrote to), `deleted_from_storage_at`
+(distinguishes "still downloadable" from "audit-trail only"), and
+`get_prunable_assets()` (already the exact query such a view's "detect
+what's prunable" action would run). No page/route exists for this yet —
+intentionally deferred until there's a real admin-tooling need.
 
 **Extension points** (how to add capability without redesigning):
 - **A new content type**: add its zod schema to
