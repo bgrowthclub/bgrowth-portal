@@ -169,7 +169,12 @@ async function drawStartWorkspaceSection(writer: PageWriter, input: GenerateWelc
 async function embedImageFromUrl(pdfDoc: PDFDocument, url: string | null) {
   if (!url) return null;
   try {
-    const response = await fetch(url);
+    // Bounded — an unreachable/slow host must never hang the whole publish
+    // request past the function's execution limit (see the outer per-step
+    // try/catch in api/publishing-engine/publish.ts, which treats a thrown
+    // error here as "skip the Welcome PDF," not "fail the publish," but a
+    // hang can't be caught the same way without this).
+    const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!response.ok) return null;
     const bytes = new Uint8Array(await response.arrayBuffer());
     const contentType = response.headers.get("content-type") ?? "";

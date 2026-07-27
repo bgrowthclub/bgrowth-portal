@@ -105,7 +105,14 @@ Studio (authoring)
 the Engine generates it itself, on every publish, from the same validated
 payload (name, short description, content sections, cover image, trial
 config, and any `metadata.outcomes` Studio has published — see
-`src/lib/productMarketing.ts`). It's an onboarding guide, not the product
+`src/lib/productMarketing.ts`). Generation is best-effort, not part of the
+critical path — it runs in its own try/catch inside
+`api/publishing-engine/publish.ts`, and any failure (an unreachable cover
+image, a slow network) results in `welcome_pdf_url: null` rather than
+failing the whole publish. The cover-image fetch inside it is also
+time-bounded (`AbortSignal.timeout`), and the route itself sets
+`maxDuration: 60` to give the combined font-embedding/fetch/upload work
+enough headroom under cold start. It's an onboarding guide, not the product
 itself: welcome message, cover image, a "Workspace Version N · Published
 &lt;date&gt;" stamp (version computed the same way `publish_product()`
 computes it — see `api/publishing-engine/publish.ts` — since generation has

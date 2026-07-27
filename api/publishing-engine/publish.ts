@@ -11,6 +11,14 @@ export const config = {
   api: {
     bodyParser: { sizeLimit: "20mb" }, // cover images arrive as base64
   },
+  // Publishing now does real work beyond the database write — uploading a
+  // cover image, generating the Welcome PDF (font embedding, a cover-image
+  // fetch, QR generation), and uploading that — which can add up past
+  // Vercel's default function timeout under cold start or slow network
+  // conditions. 60s is the maximum Hobby-tier serverless functions
+  // support; Pro/Enterprise projects get the same ceiling here but could
+  // raise it further if ever needed.
+  maxDuration: 60,
 };
 
 const CONTENT_TYPES: ContentType[] = [
@@ -137,41 +145,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
     }
 
-    // Mirrors publish_product()'s own version computation exactly (see
-    // supabase/migrations/0010_welcome_pdf.sql: `current_version + 1`, or 1
-    // for a first-ever publish) so the Welcome PDF's version stamp matches
-    // what the RPC call below is about to write — computed here, ahead of
-    // that call, since PDF generation needs to happen before we have the
-    // asset URL to pass into it.
-    const { data: existingProduct } = await supabase
-      .from("products")
-      .select("current_version")
-      .eq("studio_product_id", payload.studioProductId)
-      .maybeSingle();
-    const workspaceVersion = (existingProduct?.current_version ?? 0) + 1;
+    // Generating the Welcome Guide is best-effort, not part of the
+    // critical path: a bad cover image, a slow/unreachable fetch, or any
+    // other hiccup in PDF generation must never fail the whole publish —
+    // a Workspace with no Welcome PDF is a minor gap; a Workspace that
+    // fails to publish at all is not. Everything in this block is
+    // isolated in its own try/catch specifically so a failure here can't
+    // surface as an unhandled crash in the handler's outer catch either.
+    let welcomePdfUrl: string | null = null;
+    try {
+      // Mirrors publish_product()'s own version computation exactly (see
+      // supabase/migrations/0010_welcome_pdf.sql: `current_version + 1`,
+      // or 1 for a first-ever publish) so the Welcome PDF's version stamp
+      // matches what the RPC call below is about to write — computed
+      // here, ahead of that call, since PDF generation needs to happen
+      // before we have the asset URL to pass into it.
+      const { data: existingProduct, error: existingProductError } = await supabase
+        .from("products")
+        .select("current_version")
+        .eq("studio_product_id", payload.studioProductId)
+        .maybeSingle();
+      if (existingProductError) throw existingProductError;
+      const workspaceVersion = (existingProduct?.current_version ?? 0) + 1;
 
-    // Only "workspace" ever reaches this point (see contentSchemasByType
-    // above — any other content_type already returned 501), so
-    // contentResult.data is safe to treat as WorkspaceContent here.
-    const welcomePdfBytes = await generateWelcomePdf({
-      productName: payload.name,
-      productSlug: payload.slug,
-      shortDescription: payload.shortDescription,
-      metadata: payload.metadata,
-      content: contentResult.data as z.infer<typeof workspaceContentSchema>,
-      coverImageUrl,
-      trialDuration: payload.trialDuration ?? null,
-      trialUnit: payload.trialUnit,
-      workspaceVersion,
-      publishedAt: new Date(),
-    });
-    const welcomePdfUrl = await uploadAssetToStorage(supabase, {
-      studioProductId: payload.studioProductId,
-      pathPrefix: "welcome_pdf",
-      base64: Buffer.from(welcomePdfBytes).toString("base64"),
-      mimeType: "application/pdf",
-      fileExtension: "pdf",
-    });
+      // Only "workspace" ever reaches this point (see contentSchemasByType
+      // above — any other content_type already returned 501), so
+      // contentResult.data is safe to treat as WorkspaceContent here.
+      const welcomePdfBytes = await generateWelcomePdf({
+        productName: payload.name,
+        productSlug: payload.slug,
+        shortDescription: payload.shortDescription,
+        metadata: payload.metadata,
+        content: contentResult.data as z.infer<typeof workspaceContentSchema>,
+        coverImageUrl,
+        trialDuration: payload.trialDuration ?? null,
+        trialUnit: payload.trialUnit,
+        workspaceVersion,
+        publishedAt: new Date(),
+      });
+      welcomePdfUrl = await uploadAssetToStorage(supabase, {
+        studioProductId: payload.studioProductId,
+        pathPrefix: "welcome_pdf",
+        base64: Buffer.from(welcomePdfBytes).toString("base64"),
+        mimeType: "application/pdf",
+        fileExtension: "pdf",
+      });
+    } catch (welcomePdfError) {
+      console.error("[publishing-engine/publish] Welcome PDF generation failed, publishing without it:", welcomePdfError);
+      welcomePdfUrl = null;
+    }
 
     const resolvedAssets = await Promise.all(
       payload.assets.map(async (asset) => {
