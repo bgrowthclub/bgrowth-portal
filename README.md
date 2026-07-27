@@ -215,8 +215,12 @@ is enabled on every table: members can only read their own
 `users`/`licenses` rows and can only insert a `trial`-type license for
 themselves — a `purchased` license is only ever created by
 `grant_purchased_license()`, callable by the service-role client alone (see
-`api/webhooks/stripe.ts`); `products` is publicly readable only where
-`status = 'published'`; `product_versions`/`product_destinations`/
+`api/webhooks/stripe.ts`); `products` is publicly readable where
+`status = 'published'`, plus readable by a member who holds any license for
+that product regardless of status (so an archived Workspace stays visible
+to the customer who already owns it — see
+`supabase/migrations/0016_products_owner_visibility.sql`);
+`product_versions`/`product_destinations`/
 `published_assets` have no public policy at all (service role only);
 `catalog_index` is publicly readable since, by construction, it only ever
 holds currently-published rows.

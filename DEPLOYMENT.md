@@ -167,8 +167,21 @@ them read, alter, or drop anything in `public` or any LMS schema.
     (a guarded hard-delete primitive with no caller yet — see
     `PUBLISHING_ENGINE.md`'s "Asset lifecycle & Archive" section for the
     full design).
+16. `supabase/migrations/0016_products_owner_visibility.sql` — fixes a
+    critical gap found during the Publishing Engine's final end-to-end
+    audit: `portal.products`' only SELECT policy was `status = 'published'`,
+    full stop, so archiving a product made its row RLS-invisible to
+    *every* client — including a customer who still holds a license for
+    it, breaking "existing customers keep full access after archive."
+    Replaces the policy with `status = 'published' OR a license exists for
+    the requesting user` (additive only — anonymous/public visibility is
+    unchanged). Paired with the new `productService.fetchForLibrary()`
+    accessor (`MyLibraryPage` now fetches licenses first, then products
+    scoped to "published OR licensed," instead of `fetchPublished()`'s
+    published-only filter) so an archived-but-owned Workspace still
+    appears in My Library and opens correctly.
 
-**After running all fifteen, verify in the SQL Editor:**
+**After running all sixteen, verify in the SQL Editor:**
 ```sql
 -- Should return 12 rows: 11 base tables plus the product_review_summary view
 select table_name, table_type from information_schema.tables

@@ -61,8 +61,12 @@ should stop and be raised, not implemented silently.
 
 ## The read-only guarantee (Principle 2, enforced)
 
-`products` has exactly one RLS policy: `select` where `status = 'published'`.
-There is no `insert`/`update`/`delete` policy for the `anon` or `authenticated`
+`products` has exactly one RLS policy: `select` where `status = 'published'`
+**or** the requesting user holds a license for that product (added in
+`0016_products_owner_visibility.sql` — see "Existing customer access after
+archive" below; anonymous/public visibility is unchanged, this only adds
+back what a license holder can already see). There is no `insert`/`update`/
+`delete` policy for the `anon` or `authenticated`
 roles — the same roles Portal's own frontend uses via the anon key. Portal's
 application code is therefore *incapable* of writing to `products` at the
 database level, regardless of what the code does. The same is true of
@@ -164,6 +168,21 @@ config between sessions (same gap as `0011_pricing.sql`'s comment on
 reopened draft's stale defaults. `archive_product()` touches only
 status/version/catalog visibility, reading every other field back from
 the existing row rather than having Studio re-supply it.
+
+**Existing customer access after archive.** `deriveAccessState()` not
+reading `products.status` is necessary but was not sufficient on its own —
+the Publishing Engine's final end-to-end audit found that `products`' RLS
+policy still made an archived row invisible at the database layer to
+*every* client, including the owning customer's own session, regardless
+of what application code did with it. `productService.fetchBySlug()` (used
+by `WorkspaceViewerPage`) and `licenseService.fetchForUserWithProduct()`'s
+embedded `products` join (used by `ProfilePage`) both silently returned
+nothing for an archived-but-owned product as a result. Fixed by
+`0016_products_owner_visibility.sql` (see above) plus a new
+`productService.fetchForLibrary(licensedProductIds)` accessor —
+`MyLibraryPage` now resolves the member's licenses first, then fetches
+products scoped to "published OR licensed," instead of the published-only
+`fetchPublished()`.
 
 **Hard delete** (`portal.delete_draft_product()`) exists as a
 safety-checked primitive — guarded to a product that has `status =

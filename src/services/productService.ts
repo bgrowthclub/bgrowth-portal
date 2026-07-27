@@ -41,4 +41,26 @@ export const productService = {
     if (error) throw error;
     return data;
   },
+
+  /**
+   * My Library's product list: every published Workspace, PLUS any
+   * Workspace the member holds a license for regardless of its current
+   * status — an archived Workspace a member already owns must keep
+   * showing up here (see supabase/migrations/0016_products_owner_visibility.sql
+   * for the matching RLS change this depends on; without both, an
+   * archived-but-owned Workspace silently disappears from My Library).
+   * `fetchPublished()` alone can't do this — its explicit
+   * `status = 'published'` filter excludes an owned-but-archived row
+   * regardless of what RLS additionally allows the session to see.
+   */
+  async fetchForLibrary(licensedProductIds: string[]): Promise<ProductRow[]> {
+    let query = supabase.from("products").select("*");
+    query =
+      licensedProductIds.length > 0
+        ? query.or(`status.eq.published,id.in.(${licensedProductIds.join(",")})`)
+        : query.eq("status", "published");
+    const { data, error } = await query.order("created_at", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
+  },
 };

@@ -15,17 +15,25 @@ export function MyLibraryPage() {
   const { user } = useAuth();
 
   const {
-    data: products,
-    isLoading: isLoadingProducts,
-    error: productsError,
-    refetch: refetchProducts,
-  } = useAsync(() => productService.fetchPublished(), []);
-  const {
     data: licenses,
     isLoading: isLoadingLicenses,
     error: licensesError,
     refetch: refetchLicenses,
   } = useAsync(() => (user ? licenseService.fetchForUser(user.id) : Promise.resolve([])), [user?.id]);
+  // Depends on `licenses` so an archived-but-owned Workspace still resolves:
+  // fetchForLibrary() needs the member's licensed product ids to include a
+  // non-published row (see productService.fetchForLibrary and
+  // supabase/migrations/0016_products_owner_visibility.sql). Runs once with
+  // an empty id list while licenses are still loading, then re-runs as soon
+  // as the real ids are known — a harmless extra fetch, not a correctness
+  // issue, since `isLoading` below stays true until both have settled.
+  const licensedProductIds = (licenses ?? []).map((license) => license.product_id);
+  const {
+    data: products,
+    isLoading: isLoadingProducts,
+    error: productsError,
+    refetch: refetchProducts,
+  } = useAsync(() => productService.fetchForLibrary(licensedProductIds), [licensedProductIds.join(",")]);
   // Saved Checklists is an optional, secondary feature of My Library, not a
   // reason to block it — a failure here (e.g. a not-yet-applied migration)
   // must never stop a member from seeing/opening the Workspaces they own.
