@@ -121,8 +121,13 @@ them read, alter, or drop anything in `public` or any LMS schema.
    read separately from the full review list) and
    `portal.licenses.review_requested_at` (tracks the one-time trial-expiry
    review-request email).
+10. `supabase/migrations/0010_welcome_pdf.sql` — adds `portal.products.welcome_pdf_url`
+    (mirrors `cover_image_url`'s convenience-column pattern, but never
+    "sticky" — every publish regenerates a fresh Welcome PDF, see
+    `PUBLISHING_ENGINE.md`) and republishes `publish_product()` to accept
+    and store it, including a `welcome_pdf` row in `published_assets`.
 
-**After running all nine, verify in the SQL Editor:**
+**After running all ten, verify in the SQL Editor:**
 ```sql
 -- Should return 12 rows: 11 base tables plus the product_review_summary view
 select table_name, table_type from information_schema.tables
@@ -236,7 +241,7 @@ increments); it won't create duplicate product rows, since it upserts on
    | `PUBLISHING_ENGINE_SECRET` | generate one now: `openssl rand -hex 32` — save this value, Studio needs the identical string in Phase 6 |
    | `RESEND_API_KEY` | from your Resend dashboard (resend.com/api-keys) — powers `api/notifications/*` (Trial Activated today; more notification types reuse the same key later) |
    | `RESEND_FROM_EMAIL` | e.g. `BGrowth <notifications@bgrowthclub.com>` — the address part **must** be on a domain verified in Resend (Domains tab), or every send is rejected. Resend's own sandbox address only delivers to the account owner, never real members |
-   | `PORTAL_PUBLIC_URL` | same as the production URL you'll copy in step 4 below — used to build the logo image and "Open Workspace" link inside notification emails |
+   | `PORTAL_PUBLIC_URL` | same as the production URL you'll copy in step 4 below — used to build the logo image and "Open Workspace" link inside notification emails, and the QR code/link in the auto-generated Welcome PDF (`api/publishing-engine/publish.ts`) — without it, publishing still succeeds but the Welcome PDF omits its "Start Your Workspace" section rather than emit a broken link |
 
 4. Deploy. Once it's live, **copy the production URL** Vercel assigns
    (`https://your-project.vercel.app`, or your custom domain if you attach

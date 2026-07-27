@@ -104,9 +104,10 @@ renders that JSON generically:
   `fields[].icon` name strings against the full `lucide-react` export set
   (`src/lib/workspaceIcons.ts`) — not a hand-maintained per-icon registry —
   so a new icon name Studio starts using needs no Portal change. This is also
-  why the Viewer route is lazy-loaded (`src/app/routes.tsx`): pulling in the
-  full icon library is worth it for that genericity, but it stays out of the
-  storefront's initial bundle.
+  why both the Viewer route and the public Product Page route are
+  lazy-loaded (`src/app/routes.tsx`): pulling in the full icon library is
+  worth it for that genericity, but it stays out of the storefront's initial
+  bundle.
 - `content.brand.primaryColor` themes the whole render at runtime via CSS
   custom properties (`src/lib/workspaceTheme.ts`, same color-scale algorithm
   Studio itself uses) — a new product with a different brand color needs no
@@ -117,6 +118,29 @@ the BGrowth Publishing Engine (below) writes a product's JSON into
 `products.content` and the row's `status` is `published`, it renders
 correctly in the Portal immediately.
 
+## The Product Page
+
+`/product/:slug` (`src/features/product/ProductPage.tsx`) is the single
+source of truth for every published Workspace's marketing presence — a
+public, unauthenticated page generated entirely from the same `products` row
+the Renderer above reads, never hand-authored per product. Every section
+either reads a field that's always populated (name, short description,
+cover image, trial config) or an accessor in `src/lib/productMarketing.ts`
+that reads `products.metadata` and gracefully omits its section when Studio
+hasn't published that piece yet (`longDescription`, `included`,
+`howItWorks`) — Features falls back to the Workspace's own sections, and FAQ
+falls back to the shared, product-agnostic list in `src/data/faqs.ts`.
+Adding a new Studio-authorable marketing section later is one new
+`ProductMarketingMetadata` field plus one new accessor plus one new section
+component — `ProductPage`'s own data-fetching never changes.
+
+A signed-in visitor who already holds a trial/purchased license for the
+product is redirected straight to `/workspace/:slug` instead of seeing the
+marketing page — see `ProductPage`'s ownership check via
+`licenseService`/`deriveAccessState`. The Welcome PDF's QR code always
+points at this page (never directly at the Workspace route) specifically so
+that redirect applies uniformly.
+
 ## The BGrowth Publishing Engine
 
 The one write path into the catalog — see **[PUBLISHING_ENGINE.md](./PUBLISHING_ENGINE.md)**
@@ -126,18 +150,20 @@ though its code currently lives in this repo (`api/publishing-engine/`).
 
 Required environment variables (server-side only — never prefix these with
 `VITE_`, that would ship them to the browser; see `.env.example`):
-`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `PUBLISHING_ENGINE_SECRET`.
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `PUBLISHING_ENGINE_SECRET`,
+`PORTAL_PUBLIC_URL` (used to build the Welcome PDF's QR code/link to the
+Product Page — see below).
 
 ## Database schema
 
 | Table | Purpose |
 |---|---|
 | `workspace_categories` | Category taxonomy for Workspaces |
-| `products` | Catalog (name, description, cover image, `app_url`, `content`, `content_type`, `content_version`, `metadata`, `status`, `current_version`) |
+| `products` | Catalog (name, description, cover image, `welcome_pdf_url`, `app_url`, `content`, `content_type`, `content_version`, `metadata`, `status`, `current_version`) |
 | `product_versions` | Full snapshot per publish — history/rollback, service-role only |
 | `publication_destinations` | Lookup: portal (active), website/etsy/gumroad/academy (not yet) |
 | `product_destinations` | Per-destination publish ledger — status/version/external id, service-role only |
-| `published_assets` | Generation ledger — Workspace JSON + cover image today, PDF/social/marketplace asset types already valid |
+| `published_assets` | Generation ledger — Workspace JSON + cover image + Welcome PDF today (the latter generated server-side by the Engine itself, see `PUBLISHING_ENGINE.md`), other PDF/social/marketplace asset types already valid |
 | `catalog_index` | Read-optimized, search-indexed projection of published products — public read, not yet queried by the Portal's own pages |
 | `users` | Public profile row, 1:1 with `auth.users`, auto-created by a trigger on signup |
 | `licenses` | `type` (trial / purchased / lifetime), `status` (active / expired / revoked), `activated_at`, `expires_at` |

@@ -23,7 +23,7 @@ export function PublicWorkspaceCard({ product }: { product: ProductRow }) {
           {product.short_description}
         </p>
         <Link
-          to="/sign-up"
+          to={`/product/${product.slug}`}
           className="mt-4 inline-flex text-sm font-semibold text-primary hover:underline"
         >
           Preview Workspace →

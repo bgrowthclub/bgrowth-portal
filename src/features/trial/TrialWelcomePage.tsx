@@ -8,9 +8,9 @@ interface TrialWelcomeState {
   productSlug: string;
   trialDuration: number | null;
   trialUnit: TrialUnit;
+  /** This specific Workspace's auto-generated guide (see api/_lib/generateWelcomePdf.ts) — null until it's published at least once since the Welcome PDF feature shipped. */
+  welcomePdfUrl: string | null;
 }
-
-const WELCOME_GUIDE_URL = import.meta.env.VITE_WELCOME_GUIDE_URL as string | undefined;
 
 /**
  * Shown once, right after a trial is activated (TrialSelectionPage navigates
@@ -27,7 +27,7 @@ export function TrialWelcomePage() {
     return <Navigate to="/library" replace />;
   }
 
-  const { productName, productSlug, trialDuration, trialUnit } = state;
+  const { productName, productSlug, trialDuration, trialUnit, welcomePdfUrl } = state;
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center px-6 py-12 text-center">
@@ -48,8 +48,8 @@ export function TrialWelcomePage() {
             Open Workspace
           </Button>
         </Link>
-        {WELCOME_GUIDE_URL && (
-          <a href={WELCOME_GUIDE_URL} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto">
+        {welcomePdfUrl && (
+          <a href={welcomePdfUrl} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto">
             <Button size="lg" variant="secondary" className="w-full">
               Download Welcome Guide
             </Button>

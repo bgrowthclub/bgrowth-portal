@@ -82,6 +82,8 @@ export type ProductRow = {
    * for this product — the Viewer falls back to a "coming soon" state.
    */
   content: WorkspaceContent | null;
+  /** Auto-generated on every publish (see api/_lib/generateWelcomePdf.ts) — never Studio-authored, never "sticky" the way cover_image_url is. Null until the first publish completes. */
+  welcome_pdf_url: string | null;
   created_at: string;
 };
 
@@ -248,6 +250,7 @@ export type PublishProductArgs = {
   p_assets?: Array<{ assetType: AssetType; url?: string; mimeType?: string; sizeBytes?: number; metadata?: Record<string, unknown> }>;
   p_trial_duration?: number | null;
   p_trial_unit?: TrialUnit;
+  p_welcome_pdf_url?: string | null;
 };
 
 // Everything lives in the `portal` schema, not `public` — this database is

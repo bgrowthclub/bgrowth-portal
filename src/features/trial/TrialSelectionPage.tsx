@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
 import { productService } from "@/services/productService";
@@ -14,10 +14,15 @@ import type { ProductRow } from "@/types/database";
 export function TrialSelectionPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedSlug = searchParams.get("product");
   const [selected, setSelected] = useState<ProductRow | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
   const [activationError, setActivationError] = useState<string | null>(null);
+  // Only ever auto-open once per page load — cancelling the dialog
+  // shouldn't immediately reopen it on the next render.
+  const hasAutoOpenedRef = useRef(false);
 
   const {
     data: hasUsedTrial,
@@ -32,6 +37,22 @@ export function TrialSelectionPage() {
     error: productsError,
     refetch: refetchProducts,
   } = useAsync(() => productService.fetchTrialEligible(), []);
+
+  // Arriving with ?product=<slug> (a Product Page's "Start Free Trial"
+  // click) skips the "choose from every Workspace" grid below and opens
+  // the exact same confirm step directly for that one product — falls
+  // back to the ordinary picker if the slug is missing/invalid/not
+  // trial-eligible, so this is fully backward compatible with every other
+  // entry point (Marketplace, Library's welcome state).
+  useEffect(() => {
+    if (hasAutoOpenedRef.current || !preselectedSlug || !products) return;
+    const match = products.find((product) => product.slug === preselectedSlug);
+    if (match) {
+      hasAutoOpenedRef.current = true;
+      setSelected(match);
+      setIsConfirmOpen(true);
+    }
+  }, [preselectedSlug, products]);
 
   if (!isCheckingTrial && hasUsedTrial) {
     return <Navigate to="/library" replace />;
@@ -62,6 +83,7 @@ export function TrialSelectionPage() {
           productSlug: selected.slug,
           trialDuration: selected.trial_duration,
           trialUnit: selected.trial_unit,
+          welcomePdfUrl: selected.welcome_pdf_url,
         },
       });
     } catch (err) {

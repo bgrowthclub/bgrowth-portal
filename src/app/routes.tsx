@@ -28,10 +28,27 @@ const WorkspaceViewerPage = lazy(() =>
   import("@/features/workspace-viewer/WorkspaceViewerPage").then((m) => ({ default: m.WorkspaceViewerPage })),
 );
 
+// Lazy-loaded for the same reason: ProductFeatures resolves lucide-react
+// icons dynamically (see src/lib/workspaceIcons.ts), so this public,
+// unauthenticated route shouldn't pay for the full icon library up front.
+const ProductPage = lazy(() =>
+  import("@/features/product/ProductPage").then((m) => ({ default: m.ProductPage })),
+);
+
 export const router = createBrowserRouter([
   {
     element: <PublicLayout />,
-    children: [{ path: "/", element: <HomePage /> }],
+    children: [
+      { path: "/", element: <HomePage /> },
+      {
+        path: "/product/:slug",
+        element: (
+          <Suspense fallback={<FullPageSpinner />}>
+            <ProductPage />
+          </Suspense>
+        ),
+      },
+    ],
   },
   {
     element: <AuthLayout />,

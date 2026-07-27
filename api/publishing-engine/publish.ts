@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { requirePublishingEngineAuth } from "../_lib/requirePublishingEngineAuth.js";
 import { uploadAssetToStorage } from "../_lib/uploadAsset.js";
+import { generateWelcomePdf } from "../_lib/generateWelcomePdf.js";
 import { workspaceContentSchema } from "../../src/schemas/workspaceContent.schema.js";
 import type { AssetType, ContentType, PublicationDestinationKey, PublicationStatus } from "../../src/types/database";
 
@@ -123,6 +124,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
     }
 
+    // Only "workspace" ever reaches this point (see contentSchemasByType
+    // above — any other content_type already returned 501), so
+    // contentResult.data is safe to treat as WorkspaceContent here.
+    const welcomePdfBytes = await generateWelcomePdf({
+      productName: payload.name,
+      productSlug: payload.slug,
+      shortDescription: payload.shortDescription,
+      metadata: payload.metadata,
+      content: contentResult.data as z.infer<typeof workspaceContentSchema>,
+      coverImageUrl,
+      trialDuration: payload.trialDuration ?? null,
+      trialUnit: payload.trialUnit,
+    });
+    const welcomePdfUrl = await uploadAssetToStorage(supabase, {
+      studioProductId: payload.studioProductId,
+      pathPrefix: "welcome_pdf",
+      base64: Buffer.from(welcomePdfBytes).toString("base64"),
+      mimeType: "application/pdf",
+      fileExtension: "pdf",
+    });
+
     const resolvedAssets = await Promise.all(
       payload.assets.map(async (asset) => {
         if (asset.url) return { assetType: asset.assetType, url: asset.url, mimeType: asset.mimeType, metadata: asset.metadata };
@@ -159,6 +181,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_assets: resolvedAssets,
       p_trial_duration: payload.trialDuration ?? null,
       p_trial_unit: payload.trialUnit,
+      p_welcome_pdf_url: welcomePdfUrl,
     });
 
     if (error) throw error;
@@ -171,6 +194,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         status: product.status,
         version: product.current_version,
         coverImageUrl: product.cover_image_url,
+        welcomePdfUrl: product.welcome_pdf_url,
       },
     });
   } catch (err) {

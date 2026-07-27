@@ -1,9 +1,17 @@
 import { AccordionItem } from "@/components/ui/Accordion";
-import { FAQS } from "@/data/faqs";
+import type { ProductRow } from "@/types/database";
+import { getProductFaq } from "@/lib/productMarketing";
 
-export function FaqSection() {
+interface ProductFaqSectionProps {
+  product: Pick<ProductRow, "metadata">;
+}
+
+/** Always renders — getProductFaq() falls back to the shared, product-agnostic FAQS when Studio hasn't published a per-product override. */
+export function ProductFaqSection({ product }: ProductFaqSectionProps) {
+  const faqs = getProductFaq(product);
+
   return (
-    <section id="faq" className="bg-navy-50/50 py-24 dark:bg-white/[0.02]">
+    <section className="bg-navy-50/50 py-16 dark:bg-white/[0.02]">
       <div className="mx-auto max-w-3xl px-6">
         <div className="text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-primary">FAQ</span>
@@ -12,7 +20,7 @@ export function FaqSection() {
           </h2>
         </div>
         <div className="mt-10 flex flex-col gap-3">
-          {FAQS.map((faq) => (
+          {faqs.map((faq) => (
             <AccordionItem key={faq.question} question={faq.question}>
               {faq.answer}
             </AccordionItem>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { authService } from "./services/authService";
 import { useAuth } from "./AuthContext";
 import { FullPageSpinner } from "@/components/ui/Spinner";
+import { getPendingTrialProduct, clearPendingTrialProduct } from "@/lib/pendingTrial";
 
 export function VerifyEmailPage() {
   const location = useLocation();
@@ -18,8 +19,21 @@ export function VerifyEmailPage() {
   // A session existing here means the member already clicked the email
   // link (in this tab or another) and Supabase established it — nothing
   // left to verify, so don't leave them staring at "check your inbox".
+  //
+  // Router state can't survive this round trip (the email link may be
+  // clicked later, possibly on a different device/tab than the one that
+  // signed up), so a pending "I wanted a trial for this product" intent
+  // set by ProductPage lives in localStorage instead — see
+  // src/lib/pendingTrial.ts. Absent that, land on Library as before.
   if (isCheckingSession) return <FullPageSpinner />;
-  if (session) return <Navigate to="/library" replace />;
+  if (session) {
+    const pendingProductSlug = getPendingTrialProduct();
+    if (pendingProductSlug) {
+      clearPendingTrialProduct();
+      return <Navigate to={`/trial-selection?product=${encodeURIComponent(pendingProductSlug)}`} replace />;
+    }
+    return <Navigate to="/library" replace />;
+  }
 
   async function handleResend() {
     if (!email) return;

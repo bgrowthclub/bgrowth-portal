@@ -20,7 +20,13 @@ export function SignInPage() {
     setIsSubmitting(true);
     try {
       await authService.signIn({ email, password });
-      const redirectTo = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/library";
+      // .search is included deliberately — ProtectedRoute passes the full
+      // location it redirected from, and a Product Page's "Start Free
+      // Trial" click depends on ?product=<slug> surviving this round trip
+      // (see TrialSelectionPage) or it silently falls back to the generic
+      // "choose any Workspace" picker instead of the specific one clicked.
+      const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
+      const redirectTo = from?.pathname ? `${from.pathname}${from.search ?? ""}` : "/library";
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to sign in. Please try again.");

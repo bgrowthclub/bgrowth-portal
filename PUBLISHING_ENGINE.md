@@ -79,7 +79,7 @@ bundles or calls.
 | Content type | `workspace` only — validated against `src/schemas/workspaceContent.schema.ts` |
 | Destination | `portal` only — `website`/`etsy`/`gumroad`/`academy` exist as inactive rows in `publication_destinations` |
 | Workflow states | `draft` → `published` only — `ready_for_review`/`approved`/`archived` are valid but unused |
-| Assets | `workspace_json` (always) + `cover_image` (sent from Studio's Template Settings image picker, compressed client-side) — `thumbnail`/`welcome_pdf`/`product_pdf`/`social_image`/`marketplace_image`/`marketing_material` are valid `asset_type` values, none generated yet |
+| Assets | `workspace_json` (always) + `cover_image` (sent from Studio's Template Settings image picker, compressed client-side) + `welcome_pdf` (generated server-side by the Engine itself on every publish — see below, no Studio input required) — `thumbnail`/`product_pdf`/`social_image`/`marketplace_image`/`marketing_material` are valid `asset_type` values, none generated yet |
 | Trial configuration | Per-Workspace, set from Studio's Template Settings (`isTrialEligible`, `trialDuration`, `trialUnit`) — see `supabase/migrations/0005_workspace_trial_config.sql`. Studio's unit picker also shows Weeks/Months/Hours for a future release, but publishing with anything other than `days` is rejected client-side today, since only `days` has a Portal-side implementation |
 | Catalog index | Populated on every publish; not yet read by any Portal page |
 | Callers | `bgrowth-studio`'s Checklist Builder ("Publish to Portal" button) |
@@ -92,11 +92,26 @@ Studio (authoring)
     → POST /api/publishing-engine/publish (this repo)
       → zod-validates payload + content (schema keyed by content_type)
       → uploads cover image / other assets to Supabase Storage if sent as base64
+      → generates the Welcome PDF server-side (api/_lib/generateWelcomePdf.ts,
+        pdf-lib + qrcode — no browser/DOM involved) and uploads it too
       → calls publish_product() via a service-role client
         → one Postgres transaction: upserts products, inserts a
           product_versions snapshot, upserts product_destinations,
           inserts published_assets rows, maintains catalog_index
 ```
+
+**Welcome PDF.** Unlike `cover_image`, this asset is never sent by Studio —
+the Engine generates it itself, on every publish, from the same validated
+payload (name, short description, content sections, cover image, trial
+config, and any `metadata.outcomes` Studio has published — see
+`src/lib/productMarketing.ts`). It's an onboarding guide, not the product
+itself: welcome message, cover image, a numbered "how to get started" list
+derived from the Workspace's own sections, an optional "What You'll
+Accomplish" list, and a QR code + link pointing at the Product Page
+(`${PORTAL_PUBLIC_URL}/product/<slug>`, not the Workspace route directly —
+see `ProductPage`'s own ownership-detection redirect). Stored on
+`products.welcome_pdf_url` (convenience column) and as a `welcome_pdf` row in
+`published_assets` (full history) — see `supabase/migrations/0010_welcome_pdf.sql`.
 
 **Extension points** (how to add capability without redesigning):
 - **A new content type**: add its zod schema to
@@ -106,9 +121,10 @@ Studio (authoring)
 - **A new destination**: insert a row into `publication_destinations`
   (`is_active = true` when ready) — `product_destinations` and
   `published_assets` already carry a `destination_id`, no migration needed.
-- **A new asset type** (e.g. Welcome PDF generation): add one more entry to
-  the publish payload's `assets[]` array — the endpoint, RPC, and schema
-  already accept it generically.
+- **A new asset type**: add one more entry to the publish payload's
+  `assets[]` array (Studio-supplied) or generate it server-side the way
+  `welcome_pdf` is generated (Engine-supplied) — the endpoint, RPC, and
+  schema already accept any `asset_type` generically.
 - **A new workflow state actually being used** (e.g. `ready_for_review` as a
   real approval step): no schema change — the check constraints already
   allow it. It's a UI/process change in Studio, not a Portal/Engine change.
