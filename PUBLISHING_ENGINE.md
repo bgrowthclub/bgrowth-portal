@@ -125,7 +125,12 @@ to happen before that RPC call returns the real value), a numbered "how to
 get started" list derived from the Workspace's own sections, an optional
 "What You'll Accomplish" list, and a QR code + link pointing at the Product
 Page (`${PORTAL_PUBLIC_URL}/product/<slug>`, not the Workspace route
-directly — see `ProductPage`'s own ownership-detection redirect). Stored on
+directly — see `ProductPage`'s own ownership-detection redirect). Its role
+downstream of a purchase is deliberately secondary: the Purchase
+Confirmation email (`api/_lib/email/templates/purchaseConfirmed.ts`) links
+it as an optional "Quick Start Guide," never as a second button competing
+with that email's one primary CTA, "Open My Workspace" — the Workspace is
+the product, the PDF is just a companion. Stored on
 `products.welcome_pdf_url` (convenience column) and as a `welcome_pdf` row in
 `published_assets` (full history) — see `supabase/migrations/0010_welcome_pdf.sql`.
 

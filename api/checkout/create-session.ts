@@ -3,6 +3,7 @@ import { z } from "zod";
 import Stripe from "stripe";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { deriveAccessState } from "../../src/lib/workspaceAccess.js";
+import { notifyPurchaseConfirmed } from "../_lib/notifyPurchaseConfirmed.js";
 
 const bodySchema = z.object({
   productSlug: z.string().min(1),
@@ -121,7 +122,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.log("[DIAGNOSTIC create-session] grant_purchased_license() returned an error:", JSON.stringify(grantError));
         throw grantError;
       }
-      console.log("[DIAGNOSTIC create-session] grant_purchased_license() succeeded — returning redirectUrl");
+      console.log("[DIAGNOSTIC create-session] grant_purchased_license() succeeded — sending Purchase Confirmation email");
+      // Free Workspaces never reach api/webhooks/stripe.ts (there's no
+      // Stripe session at all), so this instant-grant branch is the only
+      // place that can fire the Purchase Confirmation email for one — this
+      // is the "including free instant grants" case, same email either way.
+      await notifyPurchaseConfirmed(supabase, { userId: user.id, productId: product.id });
       return res.status(200).json({ ok: true, redirectUrl: `/workspace/${product.slug}` });
     }
 

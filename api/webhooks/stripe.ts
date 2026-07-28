@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Stripe from "stripe";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { notifyPurchaseConfirmed } from "../_lib/notifyPurchaseConfirmed.js";
 
 // Signature verification needs the exact raw request bytes — Vercel's
 // default JSON body parser would re-serialize the body and break the
@@ -68,6 +69,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         p_product_id: productId,
       });
       if (error) throw error;
+
+      // Not deduplicated against Stripe's own rare at-least-once redelivery
+      // of the same event (grant_purchased_license itself is a safe upsert
+      // either way — see 0012_purchase_licenses.sql) — a duplicate send on
+      // that edge case is a minor annoyance, not a correctness bug. Worth
+      // an event-id dedupe if it's ever observed in practice.
+      await notifyPurchaseConfirmed(supabase, { userId, productId });
     }
 
     return res.status(200).json({ ok: true });

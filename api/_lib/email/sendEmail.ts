@@ -29,6 +29,12 @@ export interface SendEmailResult {
 export async function sendEmail({ to, subject, html, replyTo }: SendEmailInput): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
+  // Every send's reply path is the real, monitored BGrowth support inbox by
+  // default — RESEND_FROM_EMAIL (e.g. notifications@bgrowthclub.com) is
+  // often a no-reply-style sending address, so without this a customer who
+  // hits "reply" on any transactional email gets nothing back. A caller can
+  // still override it for a specific email by passing its own `replyTo`.
+  const effectiveReplyTo = replyTo ?? process.env.SUPPORT_EMAIL;
 
   if (!apiKey || !from) {
     return { ok: false, error: "RESEND_API_KEY or RESEND_FROM_EMAIL is not configured." };
@@ -46,7 +52,7 @@ export async function sendEmail({ to, subject, html, replyTo }: SendEmailInput):
         to,
         subject,
         html,
-        ...(replyTo ? { reply_to: replyTo } : {}),
+        ...(effectiveReplyTo ? { reply_to: effectiveReplyTo } : {}),
       }),
     });
 
