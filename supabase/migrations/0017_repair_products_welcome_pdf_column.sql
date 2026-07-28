@@ -1,0 +1,32 @@
+-- Repairs a live-database drift found via a production error:
+--
+--   ERROR 42703: column "welcome_pdf_url" of relation "products" does not exist
+--
+-- Audit result (see PUBLISHING_ENGINE.md / this migration's commit message
+-- for the full write-up): this is NOT a missing migration in the repo, and
+-- NOT the code writing to a column that shouldn't exist. `portal.products.
+-- welcome_pdf_url` has been a real, intentional column since
+-- `0010_welcome_pdf.sql` (committed well before 0011-0014), and every other
+-- column the current `portal.publish_product()` (see `0015_asset_lifecycle.
+-- sql`) reads or writes traces back to a legitimate `add column if not
+-- exists` (or the original `create table`) somewhere in 0001-0011 — none of
+-- them are missing from the migration history. The only explanation
+-- consistent with this specific, narrow error is that migration 0010's
+-- `alter table portal.products add column if not exists welcome_pdf_url
+-- text;` was never actually run against this database, even though 0011
+-- through 0014 (confirmed applied afterward) succeeded without erroring —
+-- which is expected, since `create or replace function` never validates
+-- that the columns its body references actually exist; that's only ever
+-- checked at execution time, which is exactly when this error first
+-- surfaced.
+--
+-- This migration deliberately does NOT re-run 0010's own `create or
+-- replace function portal.publish_product(...)` — that version only takes
+-- 18 parameters, while the current, correct definition (0015_asset_
+-- lifecycle.sql) takes 26. Postgres allows multiple overloads of the same
+-- function name with different signatures to coexist; recreating the old
+-- 18-parameter version here would leave two live overloads instead of
+-- replacing the current one, risking an ambiguous-call error the next time
+-- Studio publishes. The column is the only thing actually missing, so the
+-- column is the only thing this migration adds back.
+alter table portal.products add column if not exists welcome_pdf_url text;

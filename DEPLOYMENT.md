@@ -180,8 +180,22 @@ them read, alter, or drop anything in `public` or any LMS schema.
     scoped to "published OR licensed," instead of `fetchPublished()`'s
     published-only filter) so an archived-but-owned Workspace still
     appears in My Library and opens correctly.
+17. `supabase/migrations/0017_repair_products_welcome_pdf_column.sql` —
+    repairs a live-database drift, not a repo gap: production hit
+    `ERROR 42703: column "welcome_pdf_url" of relation "products" does not
+    exist`. Auditing every column `portal.publish_product()` reads/writes
+    against the full migration history confirmed `welcome_pdf_url` was
+    already added correctly by `0010_welcome_pdf.sql` (which predates
+    0011-0014), so the column was never missing from this repo — it was
+    apparently never actually run against this specific database. This
+    migration only re-issues that one `add column if not exists` statement
+    (deliberately not 0010's now-superseded, 18-parameter `publish_product()`
+    — recreating it would leave two overloads of the function coexisting
+    instead of replacing the current 26-parameter one). If you hit this
+    again after applying it, the next place to look is whether **all**
+    of 0001-0016 actually ran against this database, not just 0011-0014.
 
-**After running all sixteen, verify in the SQL Editor:**
+**After running all seventeen, verify in the SQL Editor:**
 ```sql
 -- Should return 12 rows: 11 base tables plus the product_review_summary view
 select table_name, table_type from information_schema.tables
