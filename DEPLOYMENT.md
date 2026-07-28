@@ -312,7 +312,8 @@ increments); it won't create duplicate product rows, since it upserts on
    | `PUBLISHING_ENGINE_SECRET` | generate one now: `openssl rand -hex 32` — save this value, Studio needs the identical string in Phase 6 |
    | `RESEND_API_KEY` | from your Resend dashboard (resend.com/api-keys) — powers `api/notifications/*` (Trial Activated today; more notification types reuse the same key later) |
    | `RESEND_FROM_EMAIL` | e.g. `BGrowth <notifications@bgrowthclub.com>` — the address part **must** be on a domain verified in Resend (Domains tab), or every send is rejected. Resend's own sandbox address only delivers to the account owner, never real members |
-   | `PORTAL_PUBLIC_URL` | same as the production URL you'll copy in step 4 below — used to build the logo image and "Open Workspace" link inside notification emails, and the QR code/link in the auto-generated Welcome PDF (`api/publishing-engine/publish.ts`) — without it, publishing still succeeds but the Welcome PDF omits its "Start Your Workspace" section rather than emit a broken link. Also used by `api/checkout/create-session.ts` to build Stripe's success/cancel redirect URLs — without it, Buy Now on a paid Workspace shows a clear error instead of starting checkout |
+   | `PORTAL_PUBLIC_URL` | same as the production URL you'll copy in step 4 below — used to build the logo image and "Open Workspace" link inside notification emails, and the QR code/link in the auto-generated Welcome PDF (`api/publishing-engine/publish.ts`) — without it, publishing still succeeds but the Welcome PDF omits its "Start Your Workspace" section rather than emit a broken link. Also used by `api/checkout/create-session.ts` to build Stripe's success/cancel redirect URLs — without it, Buy Now on a paid Workspace shows a clear error instead of starting checkout. Also builds every notification email's Privacy Policy/Terms of Service footer links (`api/_lib/email/layout.ts`) — without it, those two footer links are omitted rather than emitted as broken relative URLs |
+   | `SUPPORT_EMAIL` | the real, monitored BGrowth support inbox (e.g. `support@bgrowthclub.com`) — powers the "Support" footer link every notification email renders (`api/_lib/email/layout.ts`). Without it, that one footer link is omitted rather than emitted as a `mailto:` to nothing |
    | `STRIPE_SECRET_KEY` | Optional for now — the purchase flow (`api/checkout/create-session.ts`) ships as real, working code, but isn't required to deploy. Add it once you've connected a real Stripe account; until then, a free Workspace's "Get Started Free" still works (it never touches Stripe), and a paid Workspace's Buy Now shows "Checkout isn't set up yet" instead of failing |
    | `STRIPE_WEBHOOK_SECRET` | Same "optional for now" note as above — needed by `api/webhooks/stripe.ts` to verify that a `checkout.session.completed` event genuinely came from Stripe. Get it from the Stripe Dashboard after adding a webhook endpoint pointed at `<your-portal-domain>/api/webhooks/stripe` listening for `checkout.session.completed` |
 
@@ -373,11 +374,20 @@ Now that Portal's real URL exists (Phase 5), go back to Supabase:
 3. **Authentication → Emails**: paste `supabase/email-templates/confirm-signup.html`
    into the "Confirm signup" template's message body, and
    `supabase/email-templates/reset-password.html` into "Reset Password" —
-   both use the real BGrowth logo/brand color instead of Supabase's generic
-   default styling. Before pasting, replace `YOUR_PORTAL_DOMAIN` in each file
-   with the real production Portal domain (e.g. `app.bgrowthclub.com`) —
-   email clients need an absolute image URL, a relative `/logo.png` won't
-   resolve from an inbox.
+   both use the real BGrowth logo/brand color, a proper responsive HTML
+   shell (viewport meta + a mobile media query), a hidden inbox-preview
+   line, and footer links to Support/Privacy/Terms, matching every other
+   transactional email (`api/_lib/email/layout.ts`) instead of Supabase's
+   generic default styling. Before pasting, replace **both**
+   `YOUR_PORTAL_DOMAIN` (real production Portal domain, e.g.
+   `app.bgrowthclub.com` — email clients need an absolute image URL, a
+   relative `/logo.png` won't resolve from an inbox) **and**
+   `YOUR_SUPPORT_EMAIL` (the real, monitored support inbox — must match
+   whatever you set `SUPPORT_EMAIL` to below) in each file. Also set each
+   template's separate **"Subject heading"** field in the dashboard (not
+   part of the pasted body) — `Confirm your BGrowth email` and `Reset your
+   BGrowth password` respectively — so the subject line matches the rest of
+   the platform's tone instead of Supabase's generic defaults.
 4. **Production email deliverability** (flagged in
    `POST_LAUNCH_IMPROVEMENTS.md`, worth a decision now rather than after
    users start signing up): Supabase's built-in email sending has low
