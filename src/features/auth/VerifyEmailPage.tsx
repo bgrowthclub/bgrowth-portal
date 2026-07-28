@@ -11,7 +11,9 @@ import { getPendingAuthRedirect, clearPendingAuthRedirect } from "@/lib/pendingR
 export function VerifyEmailPage() {
   const location = useLocation();
   const { session, isLoading: isCheckingSession } = useAuth();
-  const email = (location.state as { email?: string } | null)?.email;
+  const locationState = location.state as { email?: string; emailSendFailed?: boolean } | null;
+  const email = locationState?.email;
+  const emailSendFailed = locationState?.emailSendFailed ?? false;
   const [error, setError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [resent, setResent] = useState(false);
@@ -59,6 +61,11 @@ export function VerifyEmailPage() {
       }
     >
       <FormError message={error} />
+      {emailSendFailed && !resent && (
+        <p className="rounded-lg bg-amber-50 px-4 py-2.5 text-sm text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">
+          Your account was created, but we had trouble sending the confirmation email. Use Resend Email below to try again.
+        </p>
+      )}
       {resent && (
         <p className="rounded-lg bg-primary/10 px-4 py-2.5 text-sm text-primary">
           Verification email resent.

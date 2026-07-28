@@ -470,6 +470,7 @@ real — not just "should work."
 |---|---|
 | Blank page / console error about missing Supabase env vars | `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` missing on the Vercel project — check Phase 5 step 3, redeploy after adding |
 | Signup/reset email link leads to an error page | Redirect URL not allowlisted — Phase 7 step 1 |
+| Sign-up briefly flashes an error but the account was actually created | Was Supabase's own built-in email sending hitting its default rate limit (`over_email_send_rate_limit`) — `signUp()` creates the `auth.users` row *before* attempting the confirmation email, so a failed send throws even though the account exists. `authService.signUp()` now treats that specific error code as a soft success and lands the member on Verify Email with a "we had trouble sending it, use Resend" notice instead of a red error — see "Production email deliverability" below for the actual fix (custom SMTP), since this will keep happening at any real signup volume until that's configured |
 | Publish to Portal returns 401 | `PUBLISHING_ENGINE_SECRET` (Portal) and `PORTAL_PUBLISHING_ENGINE_SECRET` (Studio) don't match exactly |
 | Publish to Portal returns 500 with a Supabase error | Check `SUPABASE_SERVICE_ROLE_KEY`/`SUPABASE_URL` are set on the **Portal** project (not the anon key by mistake) |
 | A product doesn't appear on the storefront after publishing | Check its `status` — only `published` rows are publicly readable; `draft` is correctly invisible, not a bug |

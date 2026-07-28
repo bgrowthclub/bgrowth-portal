@@ -25,8 +25,8 @@ export function SignUpPage() {
 
     setIsSubmitting(true);
     try {
-      await authService.signUp({ email, password, fullName });
-      navigate("/verify-email", { state: { email }, replace: true });
+      const { emailSendFailed } = await authService.signUp({ email, password, fullName });
+      navigate("/verify-email", { state: { email, emailSendFailed }, replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create your account. Please try again.");
     } finally {

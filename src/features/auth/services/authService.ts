@@ -1,9 +1,14 @@
+import { isAuthApiError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabaseClient";
 
 export interface SignUpInput {
   email: string;
   password: string;
   fullName: string;
+}
+
+export interface SignUpResult {
+  emailSendFailed: boolean;
 }
 
 export interface SignInInput {
@@ -16,8 +21,21 @@ export interface SignInInput {
  * update both together if those routes ever move.
  */
 export const authService = {
-  async signUp({ email, password, fullName }: SignUpInput) {
-    const { data, error } = await supabase.auth.signUp({
+  /**
+   * Supabase's signup endpoint creates the auth.users row *first*, then
+   * attempts to send the confirmation email as a separate step — if that
+   * send fails, signUp() still throws even though the account was already
+   * created. The most common trigger on this project today is Supabase's
+   * own built-in email sending hitting its low default rate limit
+   * (`over_email_send_rate_limit`, see DEPLOYMENT.md's "Production email
+   * deliverability" note) — not a real signup failure. Surfacing that as a
+   * red "couldn't create your account" error is wrong: the account exists,
+   * only the email attempt failed, and VerifyEmailPage's "Resend Email"
+   * button is exactly the built-in recovery path for it. Every other error
+   * still throws and is treated as a genuine failure.
+   */
+  async signUp({ email, password, fullName }: SignUpInput): Promise<SignUpResult> {
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -25,8 +43,13 @@ export const authService = {
         emailRedirectTo: `${window.location.origin}/verify-email`,
       },
     });
-    if (error) throw error;
-    return data;
+    if (error) {
+      if (isAuthApiError(error) && error.code === "over_email_send_rate_limit") {
+        return { emailSendFailed: true };
+      }
+      throw error;
+    }
+    return { emailSendFailed: false };
   },
 
   async signIn({ email, password }: SignInInput) {
