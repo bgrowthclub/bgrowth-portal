@@ -7,6 +7,7 @@ import { useWorkspaceProgress } from "../hooks/useWorkspaceProgress";
 import { WorkspaceAccordion } from "./WorkspaceAccordion";
 import { WorkspaceCompletionPanel } from "./WorkspaceCompletionPanel";
 import { WorkspacePrintSummary } from "./WorkspacePrintSummary";
+import { WorkspaceRuntimeErrorBoundary } from "./WorkspaceRuntimeErrorBoundary";
 import { Button } from "@/components/ui/Button";
 
 interface WorkspaceRendererProps {
@@ -47,6 +48,16 @@ export function WorkspaceRenderer({ content, initialData, onSave, instanceLabel 
     if (rootRef.current) applyWorkspaceTheme(content.brand.primaryColor, rootRef.current);
   }, [content.brand.primaryColor]);
 
+  // TEMPORARY DIAGNOSTIC — instrumenting the "Save & Continue" insertBefore
+  // crash now that duplicate section/field/item ids have been ruled out.
+  // Logs the "after" state once React has actually committed the new
+  // activeId, so it can be lined up against WorkspaceAccordion's own
+  // per-render logs and WorkspaceSectionShell's mount/unmount logs to see
+  // the exact sequence. Remove once the root cause is found and fixed.
+  useEffect(() => {
+    console.log("[WORKSPACE DIAGNOSTIC] activeId committed (post-render)", { activeId });
+  }, [activeId]);
+
   function handleSectionValueChange(sectionId: string, value: WorkspaceData[string]) {
     setData((prev) => ({ ...prev, [sectionId]: value }));
   }
@@ -54,6 +65,14 @@ export function WorkspaceRenderer({ content, initialData, onSave, instanceLabel 
   function advance(sectionId: string) {
     const index = content.sections.findIndex((section) => section.id === sectionId);
     const next = content.sections[index + 1];
+    console.log("[WORKSPACE DIAGNOSTIC] advance() called", {
+      fromSectionId: sectionId,
+      fromIndex: index,
+      toSectionId: next ? next.id : sectionId,
+      toIndex: next ? index + 1 : index,
+      willReachEnd: !next,
+      totalSections: content.sections.length,
+    });
     setActiveId(next ? next.id : sectionId);
     if (next) {
       rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -71,6 +90,11 @@ export function WorkspaceRenderer({ content, initialData, onSave, instanceLabel 
    * nothing to persist, so it just advances as before.
    */
   async function handleContinue(sectionId: string) {
+    console.log("[WORKSPACE DIAGNOSTIC] Save & Continue clicked — handleContinue() invoked", {
+      sectionId,
+      activeIdBefore: activeId,
+      hasOnSave: Boolean(onSave),
+    });
     setSectionSaveError(null);
     if (!onSave) {
       // No ?instance=<id> in the URL — the transient "Open Workspace" flow,
@@ -81,8 +105,10 @@ export function WorkspaceRenderer({ content, initialData, onSave, instanceLabel 
     setIsSectionSaving(true);
     try {
       await onSave(data);
+      console.log("[WORKSPACE DIAGNOSTIC] onSave() resolved — calling advance()", { sectionId });
       advance(sectionId);
     } catch (err) {
+      console.error("[WORKSPACE DIAGNOSTIC] onSave() threw", err);
       setSectionSaveError(err instanceof Error ? err.message : "Couldn't save your progress. Please try again.");
     } finally {
       setIsSectionSaving(false);
@@ -159,17 +185,23 @@ export function WorkspaceRenderer({ content, initialData, onSave, instanceLabel 
         />
       )}
 
-      <WorkspaceAccordion
-        content={content}
-        data={data}
-        activeId={activeId}
-        onSelect={setActiveId}
-        onContinue={handleContinue}
-        onSectionValueChange={handleSectionValueChange}
-        progressBySection={progress.sections}
-        isContinueSaving={isSectionSaving}
-        continueError={sectionSaveError}
-      />
+      {/* TEMPORARY DIAGNOSTIC: WorkspaceRuntimeErrorBoundary — catches a crash
+          here with its full React component stack (see componentDidCatch)
+          instead of only bubbling up to the app-wide ErrorBoundary. Remove
+          once the root cause is found and fixed. */}
+      <WorkspaceRuntimeErrorBoundary>
+        <WorkspaceAccordion
+          content={content}
+          data={data}
+          activeId={activeId}
+          onSelect={setActiveId}
+          onContinue={handleContinue}
+          onSectionValueChange={handleSectionValueChange}
+          progressBySection={progress.sections}
+          isContinueSaving={isSectionSaving}
+          continueError={sectionSaveError}
+        />
+      </WorkspaceRuntimeErrorBoundary>
 
       {/* Off-screen but laid out (see .printable-summary-container in
           src/styles/index.css) — both "Print" (window.print) and "Download

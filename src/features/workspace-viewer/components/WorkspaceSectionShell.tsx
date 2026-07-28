@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Star, Info, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
@@ -33,6 +33,33 @@ export function WorkspaceSectionShell({
   isSaving,
   saveError,
 }: WorkspaceSectionShellProps) {
+  // TEMPORARY DIAGNOSTIC — instrumenting the "Save & Continue" insertBefore
+  // crash now that duplicate section/field/item ids have been ruled out
+  // (Studio's Template Integrity Validator reports this template clean).
+  // instanceId marks each React instance uniquely so overlapping mount/
+  // unmount logs (e.g. two instances alive at once, which would itself be
+  // a strong signal of a reconciliation bug) are distinguishable in the
+  // console. Remove once the root cause is found and fixed.
+  const instanceId = useRef(Math.random().toString(36).slice(2, 8));
+  useEffect(() => {
+    const id = instanceId.current;
+    console.log("[WORKSPACE DIAGNOSTIC] WorkspaceSectionShell MOUNT", {
+      instanceId: id,
+      number,
+      title,
+      isLast,
+    });
+    return () => {
+      console.log("[WORKSPACE DIAGNOSTIC] WorkspaceSectionShell UNMOUNT", {
+        instanceId: id,
+        number,
+        title,
+        isLast,
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="card p-5 sm:p-7">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
