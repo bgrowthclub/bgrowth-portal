@@ -58,8 +58,16 @@ export const authService = {
     return data;
   },
 
+  /**
+   * Explicit `scope: 'local'` — supabase-js defaults `signOut()` to
+   * `scope: 'global'` when no options are passed, which revokes every
+   * session for that member across every device/tab, not just this one.
+   * A plain header "Sign Out" button should only ever end the current
+   * browser session; a real "sign out everywhere" action would be a
+   * separate, explicit control, not this button's default behavior.
+   */
   async signOut() {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut({ scope: "local" });
     if (error) throw error;
   },
 
