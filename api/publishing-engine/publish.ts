@@ -284,6 +284,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         isFree: product.is_free,
         priceCents: product.price_cents,
         currency: product.currency,
+        // Authoritative publish timestamp — Studio records this as its own
+        // PublishingMetadata.publishedAt instead of a client-side Date.now(),
+        // so it matches what the Portal actually stored.
+        publishedAt: product.last_published_at,
       },
     });
   } catch (err) {
