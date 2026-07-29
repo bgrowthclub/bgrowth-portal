@@ -164,9 +164,40 @@ export type CatalogIndexRow = {
   cover_image_url: string | null;
   is_featured: boolean;
   is_best_seller: boolean;
+  /** Curated flag ("Recommended" rail) — not personalized/ML-based, same manual-curation precedent as is_featured/is_best_seller (see supabase/migrations/0018_catalog_discovery.sql). */
+  is_recommended: boolean;
+  /** Populated from products.metadata->'tags' at publish time — empty until Studio sends tags. */
+  tags: string[];
+  /** Denormalized from portal.product_review_summary by a trigger (see 0018) — null until the product has at least one review. */
+  avg_rating: number | null;
+  review_count: number;
+  /** Distinct members who ever held a license (trial or purchase) for this product — the real "Popular" signal, maintained by a trigger on portal.licenses. */
+  license_count: number;
+  /** Denormalized straight off products (same values) so Browse's price/trial filters and sorts stay a single-table scan. */
+  is_free: boolean;
+  price_cents: number | null;
+  currency: string;
+  is_trial_eligible: boolean;
   published_at: string | null;
   search_vector: unknown;
   updated_at: string;
+};
+
+/** A curated group of products ("Featured", "New Arrivals", "Under $50") — populated by direct SQL, no authoring UI yet. See supabase/migrations/0018_catalog_discovery.sql. */
+export type CollectionRow = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  cover_image_url: string | null;
+  sort_order: number;
+  created_at: string;
+};
+
+export type ProductCollectionRow = {
+  collection_id: string;
+  product_id: string;
+  sort_order: number;
 };
 
 export type LicenseRow = {
@@ -451,6 +482,31 @@ export interface Database {
           },
           {
             foreignKeyName: "reviews_product_id_fkey";
+            columns: ["product_id"];
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      collections: {
+        Row: CollectionRow;
+        Insert: Partial<CollectionRow> & Pick<CollectionRow, "name" | "slug">;
+        Update: Partial<CollectionRow>;
+        Relationships: [];
+      };
+      product_collections: {
+        Row: ProductCollectionRow;
+        Insert: Partial<ProductCollectionRow> & Pick<ProductCollectionRow, "collection_id" | "product_id">;
+        Update: Partial<ProductCollectionRow>;
+        Relationships: [
+          {
+            foreignKeyName: "product_collections_collection_id_fkey";
+            columns: ["collection_id"];
+            referencedRelation: "collections";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_collections_product_id_fkey";
             columns: ["product_id"];
             referencedRelation: "products";
             referencedColumns: ["id"];

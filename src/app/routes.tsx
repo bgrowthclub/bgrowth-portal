@@ -48,6 +48,12 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
       },
+      // Public — Browse matches every app-store precedent this redesign is
+      // modeled on (Apple/Shopify/Notion all let you browse signed out).
+      // Only the Buy/Trial action on each card is still gated (see
+      // CatalogProductCard's own signed-out pendingRedirect handling), not
+      // the page itself.
+      { path: "/browse", element: <MarketplacePage /> },
     ],
   },
   {
@@ -76,7 +82,6 @@ export const router = createBrowserRouter([
           { path: "/trial-selection", element: <TrialSelectionPage /> },
           { path: "/trial-selection/welcome", element: <TrialWelcomePage /> },
           { path: "/library", element: <MyLibraryPage /> },
-          { path: "/browse", element: <MarketplacePage /> },
           { path: "/profile", element: <ProfilePage /> },
         ],
       },
