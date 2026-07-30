@@ -1,8 +1,11 @@
 import { Link } from "react-router-dom";
 import type { WorkspaceWithAccess } from "@/types/workspace";
+import type { WorkspaceBadge } from "@/lib/workspaceBadges";
+import { WorkspaceBadgeRow } from "@/components/catalog/WorkspaceBadgeRow";
 
 interface ContinueWorkingCardProps {
   workspace: WorkspaceWithAccess;
+  badges?: WorkspaceBadge[];
 }
 
 /**
@@ -16,7 +19,7 @@ interface ContinueWorkingCardProps {
  * revisiting something they already opened doesn't need the marketing
  * pitch again).
  */
-export function ContinueWorkingCard({ workspace }: ContinueWorkingCardProps) {
+export function ContinueWorkingCard({ workspace, badges = [] }: ContinueWorkingCardProps) {
   return (
     <Link to={`/workspace/${workspace.slug}`} className="card group flex overflow-hidden">
       <div className="aspect-square w-32 shrink-0 overflow-hidden bg-navy-100 sm:w-40 dark:bg-navy-700">
@@ -35,6 +38,7 @@ export function ContinueWorkingCard({ workspace }: ContinueWorkingCardProps) {
       <div className="flex flex-1 flex-col justify-center gap-1 p-5">
         <span className="text-xs font-semibold uppercase tracking-wider text-primary">Continue Working</span>
         <h3 className="text-lg font-bold text-navy-900 dark:text-white">{workspace.name}</h3>
+        <WorkspaceBadgeRow badges={badges} />
         <span className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-primary">
           Jump back in →
         </span>

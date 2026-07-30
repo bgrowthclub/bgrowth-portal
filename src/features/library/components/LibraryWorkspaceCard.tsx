@@ -2,9 +2,11 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Star } from "lucide-react";
 import type { WorkspaceWithAccess } from "@/types/workspace";
+import type { WorkspaceBadge } from "@/lib/workspaceBadges";
 import { AccessStateBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { BuyNowButton } from "@/components/ui/BuyNowButton";
+import { WorkspaceBadgeRow } from "@/components/catalog/WorkspaceBadgeRow";
 import { notificationService } from "@/services/notificationService";
 import { ReviewPromptCard } from "@/features/reviews/components/ReviewPromptCard";
 
@@ -21,6 +23,8 @@ interface LibraryWorkspaceCardProps {
   /** My Library's Favorites filter — owned by MyLibraryPage (it holds the license list the filter itself reads), this card is just the toggle affordance. */
   onToggleFavorite: () => void;
   isTogglingFavorite: boolean;
+  /** Computed by the caller from catalog_index (see catalogService.getByProductIds) — absent entirely for an owned-but-archived Workspace, which simply shows no badges. */
+  badges?: WorkspaceBadge[];
 }
 
 /**
@@ -39,6 +43,7 @@ export function LibraryWorkspaceCard({
   displayName,
   onToggleFavorite,
   isTogglingFavorite,
+  badges = [],
 }: LibraryWorkspaceCardProps) {
   const canOpen = workspace.accessState === "trial" || workspace.accessState === "purchased";
   const isExpired = workspace.accessState === "expired";
@@ -86,6 +91,7 @@ export function LibraryWorkspaceCard({
         <p className="mt-2 line-clamp-2 text-sm text-navy-500 dark:text-white/60">
           {workspace.short_description}
         </p>
+        <WorkspaceBadgeRow badges={badges} className="mt-2" />
         {expiry && (
           <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-300">
             Trial ends {expiry}

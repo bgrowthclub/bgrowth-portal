@@ -264,6 +264,52 @@ export const catalogService = {
     if (error) throw error;
     return data ?? [];
   },
+
+  /**
+   * My Library's badges/Recently Updated — catalog_index rows for a
+   * member's own owned products, so Library can show the same New/Updated/
+   * Best Seller/Free/Trial Available signals Browse/Home already show,
+   * without productService/licenseService needing to know about them. An
+   * owned-but-archived product has no catalog_index row (archive_product()
+   * removes it, see 0015_asset_lifecycle.sql) — simply absent from the
+   * result, same "missing metadata, hide the badge" handling every caller
+   * already applies.
+   */
+  async getByProductIds(productIds: string[]): Promise<CatalogIndexRow[]> {
+    if (productIds.length === 0) return [];
+    const { data, error } = await supabase.from("catalog_index").select("*").in("product_id", productIds);
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  /**
+   * My Library's "Recommended For You" — lightweight and client-driven, not
+   * a personalization model: published, not-yet-owned Workspaces in the
+   * same category(ies) the member already owns something in, ranked by
+   * license_count (the same "Popular" signal Browse's own sort uses).
+   * "Recent activity" is expressed by the caller through `categoryIds`'
+   * order (My Library passes owned categories ordered by which one the
+   * member was most recently active in) — this method itself just filters
+   * + ranks, it doesn't need to know why the category list is ordered
+   * that way.
+   */
+  async getRecommendedForCategories(params: {
+    categoryIds: string[];
+    excludeProductIds: string[];
+    limit?: number;
+  }): Promise<CatalogIndexRow[]> {
+    const { categoryIds, excludeProductIds, limit = 12 } = params;
+    if (categoryIds.length === 0) return [];
+
+    let query = baseSelect().in("category_id", categoryIds);
+    if (excludeProductIds.length > 0) {
+      query = query.not("product_id", "in", `(${excludeProductIds.join(",")})`);
+    }
+
+    const { data, error } = await query.order("license_count", { ascending: false }).limit(limit);
+    if (error) throw error;
+    return data ?? [];
+  },
 };
 
 /** "New"/"Recently Updated" rail window — also read by CatalogProductCard to badge a card the same way the rail itself would qualify it. */

@@ -1,15 +1,18 @@
 import { Link } from "react-router-dom";
 import { Star } from "lucide-react";
 import type { WorkspaceWithAccess } from "@/types/workspace";
+import type { WorkspaceBadge } from "@/lib/workspaceBadges";
 import { AccessStateBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { BuyNowButton } from "@/components/ui/BuyNowButton";
+import { WorkspaceBadgeRow } from "@/components/catalog/WorkspaceBadgeRow";
 
 interface LibraryWorkspaceListRowProps {
   workspace: WorkspaceWithAccess;
   categoryName?: string;
   onToggleFavorite: () => void;
   isTogglingFavorite: boolean;
+  badges?: WorkspaceBadge[];
 }
 
 /**
@@ -25,6 +28,7 @@ export function LibraryWorkspaceListRow({
   categoryName,
   onToggleFavorite,
   isTogglingFavorite,
+  badges = [],
 }: LibraryWorkspaceListRowProps) {
   const canOpen = workspace.accessState === "trial" || workspace.accessState === "purchased";
 
@@ -62,6 +66,7 @@ export function LibraryWorkspaceListRow({
               {categoryName}
             </span>
           )}
+          <WorkspaceBadgeRow badges={badges} />
         </div>
         <p className="truncate text-xs text-navy-400 dark:text-white/40">{workspace.short_description}</p>
       </div>

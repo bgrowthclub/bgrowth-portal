@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import type { CatalogIndexRow } from "@/types/database";
 import { StarRating } from "@/components/ui/StarRating";
 import { formatContentType } from "@/lib/contentType";
-import { NEW_WINDOW_DAYS } from "@/services/catalogService";
+import { isRecentlyPublished } from "@/lib/workspaceBadges";
 
 interface CatalogProductCardProps {
   item: CatalogIndexRow;
@@ -24,7 +24,7 @@ interface CatalogProductCardProps {
  * there (see ProductPricingSection), never from a card.
  */
 export function CatalogProductCard({ item, categoryName }: CatalogProductCardProps) {
-  const isNew = item.published_at != null && Date.now() - new Date(item.published_at).getTime() < NEW_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  const isNew = isRecentlyPublished(item);
 
   return (
     <Link to={`/product/${item.slug}`} className="card group flex h-full flex-col overflow-hidden">

@@ -10,6 +10,8 @@ import { workspaceInstanceService } from "@/services/workspaceInstanceService";
 import { catalogService } from "@/services/catalogService";
 import { attachAccessState } from "@/lib/workspaceAccess";
 import { getLibraryViewPreference, setLibraryViewPreference, type LibraryViewMode } from "@/lib/libraryViewPreference";
+import { getWorkspaceBadges, isRecentlyUpdated } from "@/lib/workspaceBadges";
+import { rankRecommendations } from "@/lib/recommendations";
 import type { WorkspaceWithAccess } from "@/types/workspace";
 import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +19,7 @@ import { FetchErrorState } from "@/components/ui/FetchErrorState";
 import { LibraryWorkspaceCard } from "./components/LibraryWorkspaceCard";
 import { LibraryWorkspaceListRow } from "./components/LibraryWorkspaceListRow";
 import { LibraryDashboardSections } from "./components/LibraryDashboardSections";
+import { CategoryChips } from "./components/CategoryChips";
 import { SavedChecklistsPanel } from "./components/SavedChecklistsPanel";
 import {
   LibraryFilterBar,
@@ -24,6 +27,15 @@ import {
   type LibraryProgressFilter,
   type LibrarySortOption,
 } from "./components/LibraryFilterBar";
+
+const CONTINUE_WORKING_LIMIT = 5;
+const RECOMMENDED_CANDIDATE_POOL = 24;
+const RECOMMENDED_DISPLAY_LIMIT = 10;
+
+/** Most-recent activity signal for a single owned Workspace — opened wins over merely purchased, matching "Recently Opened"'s own tie-break elsewhere on this page. */
+function lastActivityTime(workspace: WorkspaceWithAccess): number {
+  return new Date(workspace.license?.last_opened_at ?? workspace.license?.activated_at ?? 0).getTime();
+}
 
 export function MyLibraryPage() {
   const { user } = useAuth();
@@ -87,6 +99,24 @@ export function MyLibraryPage() {
   const workspaces = products && licenses
     ? attachAccessState(products, licenses).filter((w) => w.accessState !== "locked")
     : null;
+  const ownedProductIds = useMemo(() => (workspaces ?? []).map((w) => w.id), [workspaces]);
+
+  // catalog_index rows for the member's own owned products — the one place
+  // Library reads this table, feeding badges (New/Updated/Best Seller/Free/
+  // Trial Available) and Recently Updated. An owned-but-archived Workspace
+  // has no row here (archive_product() removes it) — it just shows no
+  // badges and never qualifies for Recently Updated, the same "missing
+  // metadata, hide it" handling every other optional field already gets.
+  const { data: catalogRows } = useAsync(() => catalogService.getByProductIds(ownedProductIds), [ownedProductIds.join(",")]);
+  const catalogRowByProductId = useMemo(
+    () => new Map((catalogRows ?? []).map((row) => [row.product_id, row])),
+    [catalogRows],
+  );
+  const badgesByProductId = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof getWorkspaceBadges>>();
+    for (const row of catalogRows ?? []) map.set(row.product_id, getWorkspaceBadges(row));
+    return map;
+  }, [catalogRows]);
 
   const categoryIdBySlug = useMemo(
     () => new Map((facets?.categories ?? []).map((category) => [category.slug, category.id])),
@@ -96,6 +126,101 @@ export function MyLibraryPage() {
     () => new Map((facets?.categories ?? []).map((category) => [category.id, category.name])),
     [facets],
   );
+  // Only categories the member actually owns something in — a strict
+  // subset of the site-wide facet list, so the chip row never advertises a
+  // category with nothing to show.
+  const ownedCategories = useMemo(() => {
+    const ownedIds = new Set((workspaces ?? []).map((w) => w.category_id).filter((id): id is string => Boolean(id)));
+    return (facets?.categories ?? []).filter((category) => ownedIds.has(category.id));
+  }, [facets, workspaces]);
+
+  // --- Dashboard section derivations (section ORDER itself lives in
+  // LibraryDashboardSections — Continue Working is always passed first and
+  // rendered first, per its top-priority requirement) ---
+
+  const continueWorking = useMemo(() => {
+    if (!workspaces) return [];
+    return workspaces
+      .filter((w) => (w.accessState === "trial" || w.accessState === "purchased") && w.license?.last_opened_at)
+      .sort((a, b) => new Date(b.license!.last_opened_at!).getTime() - new Date(a.license!.last_opened_at!).getTime())
+      .slice(0, CONTINUE_WORKING_LIMIT);
+  }, [workspaces]);
+
+  const favoriteWorkspaces = useMemo(() => {
+    if (!workspaces) return [];
+    return workspaces
+      .filter((w) => w.license?.is_favorite)
+      .sort((a, b) => new Date(b.license?.activated_at ?? 0).getTime() - new Date(a.license?.activated_at ?? 0).getTime());
+  }, [workspaces]);
+
+  const recentPurchaseWorkspaces = useMemo(() => {
+    if (!workspaces) return [];
+    return [...workspaces].sort(
+      (a, b) => new Date(b.license?.activated_at ?? 0).getTime() - new Date(a.license?.activated_at ?? 0).getTime(),
+    );
+  }, [workspaces]);
+
+  const recentlyUpdatedWorkspaces = useMemo(() => {
+    if (!workspaces) return [];
+    return workspaces
+      .filter((w) => {
+        const catalogRow = catalogRowByProductId.get(w.id);
+        return catalogRow ? isRecentlyUpdated(catalogRow) : false;
+      })
+      .sort(
+        (a, b) =>
+          new Date(catalogRowByProductId.get(b.id)!.updated_at).getTime() -
+          new Date(catalogRowByProductId.get(a.id)!.updated_at).getTime(),
+      );
+  }, [workspaces, catalogRowByProductId]);
+
+  // Explicit union, not just "everything owned" — expresses "don't repeat
+  // Continue Working/Favorites/Recent Purchases" as its own guarantee
+  // rather than relying on the coincidence that Recommended already
+  // excludes every owned product at the SQL level (see
+  // rankRecommendations()'s own doc comment on why this stays independent).
+  const alreadyShownProductIds = useMemo(
+    () =>
+      new Set([
+        ...continueWorking.map((w) => w.id),
+        ...favoriteWorkspaces.map((w) => w.id),
+        ...recentPurchaseWorkspaces.map((w) => w.id),
+      ]),
+    [continueWorking, favoriteWorkspaces, recentPurchaseWorkspaces],
+  );
+
+  // "Recent activity" for Recommended For You: owned categories ordered by
+  // which one the member was most recently active in (opened, else
+  // purchased), most recent first — see src/lib/recommendations.ts.
+  const ownedCategoryIdsByRecency = useMemo(() => {
+    if (!workspaces) return [];
+    const sorted = [...workspaces].sort((a, b) => lastActivityTime(b) - lastActivityTime(a));
+    const seen: string[] = [];
+    for (const workspace of sorted) {
+      if (workspace.category_id && !seen.includes(workspace.category_id)) seen.push(workspace.category_id);
+    }
+    return seen;
+  }, [workspaces]);
+
+  const { data: recommendedCandidates } = useAsync(
+    () =>
+      ownedCategoryIdsByRecency.length > 0
+        ? catalogService.getRecommendedForCategories({
+            categoryIds: ownedCategoryIdsByRecency,
+            excludeProductIds: ownedProductIds,
+            limit: RECOMMENDED_CANDIDATE_POOL,
+          })
+        : Promise.resolve([]),
+    [ownedCategoryIdsByRecency.join(","), ownedProductIds.join(",")],
+  );
+
+  const recommended = useMemo(() => {
+    if (!recommendedCandidates) return [];
+    return rankRecommendations(recommendedCandidates, {
+      ownedCategoryIdsByRecency,
+      alreadyShownProductIds,
+    }).slice(0, RECOMMENDED_DISPLAY_LIMIT);
+  }, [recommendedCandidates, ownedCategoryIdsByRecency, alreadyShownProductIds]);
 
   // Per-product progress signal from workspace_instances — "Not Started"
   // means a license exists but the member has never created a saved
@@ -225,7 +350,13 @@ export function MyLibraryPage() {
 
       {!isLoading && !error && workspaces && workspaces.length > 1 && user && (
         <LibraryDashboardSections
-          workspaces={workspaces}
+          continueWorking={continueWorking}
+          recommended={recommended}
+          recentlyUpdated={recentlyUpdatedWorkspaces}
+          favorites={favoriteWorkspaces}
+          recentPurchases={recentPurchaseWorkspaces}
+          badgesByProductId={badgesByProductId}
+          categoryNameById={categoryNameById}
           userId={user.id}
           displayName={displayName}
           onToggleFavorite={handleToggleFavorite}
@@ -235,6 +366,13 @@ export function MyLibraryPage() {
 
       {!isLoading && !error && workspaces && workspaces.length > 1 && (
         <>
+          {ownedCategories.length > 1 && (
+            <div className="mt-12">
+              <h2 className="mb-4 text-lg font-bold text-navy-900 dark:text-white">Browse by Category</h2>
+              <CategoryChips categories={ownedCategories} selected={categorySlug} onSelect={setCategorySlug} />
+            </div>
+          )}
+
           <div className="mt-12 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-bold text-navy-900 dark:text-white">All Workspaces</h2>
             <div className="flex items-center gap-1 rounded-full border border-navy-100 p-1 dark:border-white/10">
@@ -304,6 +442,7 @@ export function MyLibraryPage() {
               categoryName={workspace.category_id ? categoryNameById.get(workspace.category_id) : undefined}
               onToggleFavorite={() => handleToggleFavorite(workspace)}
               isTogglingFavorite={togglingFavoriteId === workspace.license?.id}
+              badges={badgesByProductId.get(workspace.id)}
             />
           ))}
         </div>
@@ -327,6 +466,7 @@ export function MyLibraryPage() {
                   displayName={displayName}
                   onToggleFavorite={() => handleToggleFavorite(workspace)}
                   isTogglingFavorite={togglingFavoriteId === workspace.license?.id}
+                  badges={badgesByProductId.get(workspace.id)}
                 />
                 {canOpen && (
                   <SavedChecklistsPanel
