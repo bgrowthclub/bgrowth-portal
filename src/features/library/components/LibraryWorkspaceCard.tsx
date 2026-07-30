@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
+import { Star } from "lucide-react";
 import type { WorkspaceWithAccess } from "@/types/workspace";
 import { AccessStateBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +18,9 @@ interface LibraryWorkspaceCardProps {
   userId: string;
   /** Snapshotted onto a review at submission time — see reviewService.create. */
   displayName: string;
+  /** My Library's Favorites filter — owned by MyLibraryPage (it holds the license list the filter itself reads), this card is just the toggle affordance. */
+  onToggleFavorite: () => void;
+  isTogglingFavorite: boolean;
 }
 
 /**
@@ -29,7 +33,13 @@ interface LibraryWorkspaceCardProps {
  * SavedChecklistsPanel (a sibling, not a section of this card) covers
  * this Workspace's saved checklist instances; see MyLibraryPage.
  */
-export function LibraryWorkspaceCard({ workspace, userId, displayName }: LibraryWorkspaceCardProps) {
+export function LibraryWorkspaceCard({
+  workspace,
+  userId,
+  displayName,
+  onToggleFavorite,
+  isTogglingFavorite,
+}: LibraryWorkspaceCardProps) {
   const canOpen = workspace.accessState === "trial" || workspace.accessState === "purchased";
   const isExpired = workspace.accessState === "expired";
   const isPurchased = workspace.accessState === "purchased";
@@ -59,7 +69,19 @@ export function LibraryWorkspaceCard({ workspace, userId, displayName }: Library
       <div className="flex flex-1 flex-col p-6">
         <div className="flex items-start justify-between gap-3">
           <h3 className="text-lg font-semibold text-navy-900 dark:text-white">{workspace.name}</h3>
-          <AccessStateBadge state={workspace.accessState} />
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={onToggleFavorite}
+              disabled={isTogglingFavorite}
+              aria-pressed={workspace.license?.is_favorite ?? false}
+              aria-label={workspace.license?.is_favorite ? "Remove from favorites" : "Add to favorites"}
+              className="text-navy-300 transition hover:text-amber-400 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white/30"
+            >
+              <Star className={`h-5 w-5 ${workspace.license?.is_favorite ? "fill-amber-400 text-amber-400" : ""}`} />
+            </button>
+            <AccessStateBadge state={workspace.accessState} />
+          </div>
         </div>
         <p className="mt-2 line-clamp-2 text-sm text-navy-500 dark:text-white/60">
           {workspace.short_description}

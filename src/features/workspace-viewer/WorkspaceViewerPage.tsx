@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
@@ -42,6 +43,29 @@ export function WorkspaceViewerPage() {
     [instanceId],
   );
 
+  // Computed ahead of every early return below (Rules of Hooks — the
+  // recordOpened effect right after this needs them unconditionally).
+  // Safe when product/licenses are still null/loading: license resolves to
+  // null, accessState to "locked", hasAccess to false, so the effect below
+  // simply doesn't fire until the real values are in.
+  const license = licenses?.find((item) => item.product_id === product?.id) ?? null;
+  const accessState = deriveAccessState(license);
+  const hasAccess = accessState === "trial" || accessState === "purchased";
+
+  // Fires once per successful open (not once ever) — every time a member
+  // actually reaches this Workspace, last_opened_at updates, powering My
+  // Library's "Recently Opened" sort. The ref only guards against
+  // re-firing on re-renders within the same mount (StrictMode's double
+  // effect invocation, license/product refetches), not "only the first
+  // time this Workspace is ever opened."
+  const hasRecordedOpenRef = useRef(false);
+  useEffect(() => {
+    if (hasAccess && license && !hasRecordedOpenRef.current) {
+      hasRecordedOpenRef.current = true;
+      void licenseService.recordOpened(license.id);
+    }
+  }, [hasAccess, license]);
+
   if (isLoadingProduct || isLoadingLicenses || isLoadingInstance) return <FullPageSpinner />;
 
   const fetchError = productError ?? licensesError ?? instanceError;
@@ -66,10 +90,6 @@ export function WorkspaceViewerPage() {
   // No fetch error and no product means the slug genuinely doesn't exist — a distinct
   // case from the error above, which is why fetchError is checked first, separately.
   if (!product) return <Navigate to="/library" replace />;
-
-  const license = licenses?.find((item) => item.product_id === product.id) ?? null;
-  const accessState = deriveAccessState(license);
-  const hasAccess = accessState === "trial" || accessState === "purchased";
 
   if (!hasAccess) return <Navigate to="/library" replace />;
 

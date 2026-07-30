@@ -213,6 +213,10 @@ export type LicenseRow = {
   created_at: string;
   /** Set once the one-time "trial expired, how was it?" review-request email has been sent — never re-sent after. Null until then. */
   review_requested_at: string | null;
+  /** My Library "Favorites" filter — a UI preference, not a licensing concept. Self-service updatable (see supabase/migrations/0019_library_favorites_and_last_opened.sql's column-scoped grant). */
+  is_favorite: boolean;
+  /** Set by WorkspaceViewerPage on every successful open — powers My Library's "Recently Opened" sort. Null until the member has ever opened this Workspace. */
+  last_opened_at: string | null;
 };
 
 export type UserProfileRow = {

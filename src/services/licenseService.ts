@@ -85,4 +85,24 @@ export const licenseService = {
     if (error) throw error;
     return data;
   },
+
+  /**
+   * My Library's Favorites filter. Self-service — RLS + a column-scoped
+   * grant (see 0019_library_favorites_and_last_opened.sql) let a member
+   * update only this column (and last_opened_at below) on their own
+   * license row; every other column stays server-write-only.
+   */
+  async toggleFavorite(licenseId: string, isFavorite: boolean): Promise<void> {
+    const { error } = await supabase.from("licenses").update({ is_favorite: isFavorite }).eq("id", licenseId);
+    if (error) throw error;
+  },
+
+  /** Called once per successful Workspace open (see WorkspaceViewerPage) — powers My Library's "Recently Opened" sort. */
+  async recordOpened(licenseId: string): Promise<void> {
+    const { error } = await supabase
+      .from("licenses")
+      .update({ last_opened_at: new Date().toISOString() })
+      .eq("id", licenseId);
+    if (error) throw error;
+  },
 };
