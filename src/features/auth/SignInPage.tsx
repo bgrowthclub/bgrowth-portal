@@ -5,6 +5,7 @@ import { FormError } from "./components/FormError";
 import { TextField } from "@/components/ui/TextField";
 import { Button } from "@/components/ui/Button";
 import { authService } from "./services/authService";
+import { getPendingAuthRedirect, clearPendingAuthRedirect } from "@/lib/pendingRedirect";
 
 export function SignInPage() {
   const navigate = useNavigate();
@@ -25,8 +26,19 @@ export function SignInPage() {
       // Trial" click depends on ?product=<slug> surviving this round trip
       // (see TrialSelectionPage) or it silently falls back to the generic
       // "choose any Workspace" picker instead of the specific one clicked.
+      //
+      // A Product Page's Start Free Trial/Buy Now click sends a signed-out
+      // visitor to /sign-up (see ProductPricingSection), but an existing
+      // member typically lands here via that page's own "Sign in" link
+      // instead — which carries no router state at all. Falling back to
+      // the same pendingRedirect localStorage flag VerifyEmailPage already
+      // consumes (see src/lib/pendingRedirect.ts) means "authenticate, then
+      // continue with the selected action" holds for sign-in too, not just
+      // sign-up.
       const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
-      const redirectTo = from?.pathname ? `${from.pathname}${from.search ?? ""}` : "/library";
+      const pendingRedirect = !from?.pathname ? getPendingAuthRedirect() : null;
+      if (pendingRedirect) clearPendingAuthRedirect();
+      const redirectTo = from?.pathname ? `${from.pathname}${from.search ?? ""}` : (pendingRedirect ?? "/library");
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to sign in. Please try again.");

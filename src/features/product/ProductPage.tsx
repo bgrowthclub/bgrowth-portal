@@ -50,6 +50,13 @@ export function ProductPage() {
     error: licensesError,
     refetch: refetchLicenses,
   } = useAsync(() => (user ? licenseService.fetchForUser(user.id) : Promise.resolve([])), [user?.id]);
+  // Platform-wide (not scoped to this product) — gates whether the pricing
+  // section still offers Start Free Trial at all, distinct from accessState
+  // below (which is scoped to this one product).
+  const { data: hasUsedTrial } = useAsync(
+    () => (user ? licenseService.hasUsedTrial(user.id) : Promise.resolve(false)),
+    [user?.id],
+  );
 
   useDocumentHead(
     product ? `${product.name} — BGrowth` : "BGrowth Workspace",
@@ -83,33 +90,36 @@ export function ProductPage() {
     return <Navigate to="/" replace />;
   }
 
-  // Auto-detect ownership and skip the marketing pitch entirely for a
-  // visitor who can actually open this Workspace right now. An expired
-  // trial deliberately still sees this page — Buy Now here is more useful
-  // to them than a Workspace route that would just redirect them straight
-  // back out (see WorkspaceViewerPage's own access gate).
-  if (user && licenses) {
-    const license = licenses.find((item) => item.product_id === product.id) ?? null;
-    const accessState = deriveAccessState(license);
-    if (accessState === "trial" || accessState === "purchased") {
-      return <Navigate to={`/workspace/${product.slug}`} replace />;
-    }
-  }
+  // Ownership no longer bounces a visitor straight to the Workspace — the
+  // page stays viewable either way, and the sticky ProductPricingSection
+  // adapts its own CTA (Open Workspace vs. Trial/Buy) based on accessState.
+  // "locked" (never engaged) is also the correct state for a signed-out
+  // visitor, since there's no license to look up without a session.
+  const license = user && licenses ? licenses.find((item) => item.product_id === product.id) ?? null : null;
+  const accessState = deriveAccessState(license);
 
   return (
     <div>
-      <Breadcrumb items={[{ label: "Home", to: "/" }, { label: product.name }]} />
-      <ProductHero product={product} />
-      <ProductTrustBadges product={product} />
-      <ProductLongDescription product={product} />
-      <ProductScreenshotsSection product={product} />
-      <ProductFeatures product={product} />
-      <ProductIncluded product={product} />
-      <ProductHowItWorks product={product} />
-      <ProductReviewsSection productId={product.id} />
-      <ProductRelatedWorkspaces currentProductId={product.id} categoryId={product.category_id} />
-      <ProductFaqSection product={product} />
-      <ProductPricingSection product={product} isAuthenticated={Boolean(user)} />
+      {/* Bottom padding reserves room for the fixed ProductPricingSection bar below so it never overlaps the FAQ/last section. */}
+      <div className="pb-28">
+        <Breadcrumb items={[{ label: "Home", to: "/" }, { label: product.name }]} />
+        <ProductHero product={product} />
+        <ProductTrustBadges product={product} />
+        <ProductLongDescription product={product} />
+        <ProductScreenshotsSection product={product} />
+        <ProductFeatures product={product} />
+        <ProductIncluded product={product} />
+        <ProductHowItWorks product={product} />
+        <ProductReviewsSection productId={product.id} />
+        <ProductRelatedWorkspaces currentProductId={product.id} categoryId={product.category_id} />
+        <ProductFaqSection product={product} />
+      </div>
+      <ProductPricingSection
+        product={product}
+        isAuthenticated={Boolean(user)}
+        accessState={accessState}
+        hasUsedTrial={hasUsedTrial ?? false}
+      />
     </div>
   );
 }
