@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Star } from "lucide-react";
 import type { WorkspaceWithAccess } from "@/types/workspace";
+import type { ReviewRow } from "@/types/database";
 import type { WorkspaceBadge } from "@/lib/workspaceBadges";
 import { AccessStateBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -25,6 +26,8 @@ interface LibraryWorkspaceCardProps {
   isTogglingFavorite: boolean;
   /** Computed by the caller from catalog_index (see catalogService.getByProductIds) — absent entirely for an owned-but-archived Workspace, which simply shows no badges. */
   badges?: WorkspaceBadge[];
+  /** This member's review for this Workspace, batched by the caller (see reviewService.getForUserBatch) — undefined while that batch fetch is still loading. Only read when the ReviewPromptCard below actually renders (expired/purchased). */
+  review?: ReviewRow | null;
 }
 
 /**
@@ -44,6 +47,7 @@ export function LibraryWorkspaceCard({
   onToggleFavorite,
   isTogglingFavorite,
   badges = [],
+  review,
 }: LibraryWorkspaceCardProps) {
   const canOpen = workspace.accessState === "trial" || workspace.accessState === "purchased";
   const isExpired = workspace.accessState === "expired";
@@ -121,6 +125,7 @@ export function LibraryWorkspaceCard({
               productId={workspace.id}
               displayName={displayName}
               createdFrom={isPurchased ? "purchase" : "trial"}
+              review={review}
             />
           </div>
         )}

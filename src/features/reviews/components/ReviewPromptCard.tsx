@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { useAsync } from "@/hooks/useAsync";
 import { reviewService } from "@/services/reviewService";
-import type { ReviewCreatedFrom } from "@/types/database";
+import type { ReviewCreatedFrom, ReviewRow } from "@/types/database";
 import { StarRating } from "@/components/ui/StarRating";
 import { ReviewFormDialog, type ReviewFormValues } from "./ReviewFormDialog";
 
@@ -11,6 +10,14 @@ interface ReviewPromptCardProps {
   displayName: string;
   /** Why this member is eligible right now — recorded on the review at creation, never changed by an edit. */
   createdFrom: ReviewCreatedFrom;
+  /**
+   * This member's existing review for this product, if any — fetched once
+   * by the caller for every eligible product in a single batched query (see
+   * reviewService.getForUserBatch), never by this component itself. `undefined`
+   * means the batch fetch hasn't resolved yet (renders nothing, same as the
+   * old per-card loading state); `null` means it resolved and no review exists.
+   */
+  review: ReviewRow | null | undefined;
 }
 
 /**
@@ -21,12 +28,7 @@ interface ReviewPromptCardProps {
  * branches). Once submitted, the write-prompt is gone for this visit —
  * only a compact "Edit review" line remains from then on.
  */
-export function ReviewPromptCard({ userId, productId, displayName, createdFrom }: ReviewPromptCardProps) {
-  const {
-    data: review,
-    isLoading,
-    error: fetchError,
-  } = useAsync(() => reviewService.getForUser(productId, userId), [productId, userId]);
+export function ReviewPromptCard({ userId, productId, displayName, createdFrom, review }: ReviewPromptCardProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -50,10 +52,10 @@ export function ReviewPromptCard({ userId, productId, displayName, createdFrom }
     }
   }
 
-  // Optional feature, same as Saved Checklists — a lookup failure (e.g. an
-  // unapplied migration) must never render the "write a review" prompt on
-  // a guess; show nothing rather than assert a state we don't actually know.
-  if (isLoading || fetchError) return null;
+  // Optional feature, same as Saved Checklists — while the caller's batched
+  // lookup hasn't resolved yet (or failed), show nothing rather than assert
+  // a state we don't actually know.
+  if (review === undefined) return null;
 
   if (justSubmitted) {
     return <p className="text-sm font-medium text-primary">Thank you for your feedback!</p>;
