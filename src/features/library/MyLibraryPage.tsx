@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { LayoutGrid, List as ListIcon } from "lucide-react";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -8,11 +9,14 @@ import { licenseService } from "@/services/licenseService";
 import { workspaceInstanceService } from "@/services/workspaceInstanceService";
 import { catalogService } from "@/services/catalogService";
 import { attachAccessState } from "@/lib/workspaceAccess";
+import { getLibraryViewPreference, setLibraryViewPreference, type LibraryViewMode } from "@/lib/libraryViewPreference";
 import type { WorkspaceWithAccess } from "@/types/workspace";
 import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { FetchErrorState } from "@/components/ui/FetchErrorState";
 import { LibraryWorkspaceCard } from "./components/LibraryWorkspaceCard";
+import { LibraryWorkspaceListRow } from "./components/LibraryWorkspaceListRow";
+import { LibraryDashboardSections } from "./components/LibraryDashboardSections";
 import { SavedChecklistsPanel } from "./components/SavedChecklistsPanel";
 import {
   LibraryFilterBar,
@@ -66,6 +70,12 @@ export function MyLibraryPage() {
   const [sort, setSort] = useState<LibrarySortOption>("recently_opened");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<LibraryViewMode>(() => getLibraryViewPreference());
+
+  function handleViewModeChange(mode: LibraryViewMode) {
+    setViewMode(mode);
+    setLibraryViewPreference(mode);
+  }
 
   const isLoading = isLoadingProducts || isLoadingLicenses;
   const error = productsError ?? licensesError;
@@ -80,6 +90,10 @@ export function MyLibraryPage() {
 
   const categoryIdBySlug = useMemo(
     () => new Map((facets?.categories ?? []).map((category) => [category.slug, category.id])),
+    [facets],
+  );
+  const categoryNameById = useMemo(
+    () => new Map((facets?.categories ?? []).map((category) => [category.id, category.name])),
     [facets],
   );
 
@@ -144,6 +158,8 @@ export function MyLibraryPage() {
     return sorted;
   }, [workspaces, debouncedQ, categorySlug, categoryIdBySlug, accessFilter, progressFilter, favoritesOnly, progressByProductId, sort]);
 
+  const displayName = (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? "A member";
+
   async function handleToggleFavorite(workspace: WorkspaceWithAccess) {
     if (!workspace.license) return;
     setTogglingFavoriteId(workspace.license.id);
@@ -207,22 +223,70 @@ export function MyLibraryPage() {
         </div>
       )}
 
-      {!isLoading && !error && workspaces && workspaces.length > 1 && (
-        <LibraryFilterBar
-          q={q}
-          onQChange={setQ}
-          categorySlug={categorySlug}
-          onCategoryChange={setCategorySlug}
-          categories={facets?.categories ?? []}
-          accessFilter={accessFilter}
-          onAccessFilterChange={setAccessFilter}
-          progressFilter={progressFilter}
-          onProgressFilterChange={setProgressFilter}
-          sort={sort}
-          onSortChange={setSort}
-          favoritesOnly={favoritesOnly}
-          onFavoritesOnlyChange={setFavoritesOnly}
+      {!isLoading && !error && workspaces && workspaces.length > 1 && user && (
+        <LibraryDashboardSections
+          workspaces={workspaces}
+          userId={user.id}
+          displayName={displayName}
+          onToggleFavorite={handleToggleFavorite}
+          togglingFavoriteId={togglingFavoriteId}
         />
+      )}
+
+      {!isLoading && !error && workspaces && workspaces.length > 1 && (
+        <>
+          <div className="mt-12 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-lg font-bold text-navy-900 dark:text-white">All Workspaces</h2>
+            <div className="flex items-center gap-1 rounded-full border border-navy-100 p-1 dark:border-white/10">
+              <button
+                type="button"
+                onClick={() => handleViewModeChange("grid")}
+                aria-pressed={viewMode === "grid"}
+                aria-label="Grid view"
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  viewMode === "grid"
+                    ? "bg-primary text-white"
+                    : "text-navy-500 hover:text-primary dark:text-white/60"
+                }`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                Grid
+              </button>
+              <button
+                type="button"
+                onClick={() => handleViewModeChange("list")}
+                aria-pressed={viewMode === "list"}
+                aria-label="List view"
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  viewMode === "list"
+                    ? "bg-primary text-white"
+                    : "text-navy-500 hover:text-primary dark:text-white/60"
+                }`}
+              >
+                <ListIcon className="h-4 w-4" />
+                List
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <LibraryFilterBar
+              q={q}
+              onQChange={setQ}
+              categorySlug={categorySlug}
+              onCategoryChange={setCategorySlug}
+              categories={facets?.categories ?? []}
+              accessFilter={accessFilter}
+              onAccessFilterChange={setAccessFilter}
+              progressFilter={progressFilter}
+              onProgressFilterChange={setProgressFilter}
+              sort={sort}
+              onSortChange={setSort}
+              favoritesOnly={favoritesOnly}
+              onFavoritesOnlyChange={setFavoritesOnly}
+            />
+          </div>
+        </>
       )}
 
       {!isLoading && !error && visibleWorkspaces && visibleWorkspaces.length === 0 && (
@@ -231,7 +295,21 @@ export function MyLibraryPage() {
         </p>
       )}
 
-      {!isLoading && !error && visibleWorkspaces && visibleWorkspaces.length > 0 && user && (
+      {!isLoading && !error && visibleWorkspaces && visibleWorkspaces.length > 0 && user && viewMode === "list" && (
+        <div className="mt-8 flex flex-col gap-3">
+          {visibleWorkspaces.map((workspace) => (
+            <LibraryWorkspaceListRow
+              key={workspace.id}
+              workspace={workspace}
+              categoryName={workspace.category_id ? categoryNameById.get(workspace.category_id) : undefined}
+              onToggleFavorite={() => handleToggleFavorite(workspace)}
+              isTogglingFavorite={togglingFavoriteId === workspace.license?.id}
+            />
+          ))}
+        </div>
+      )}
+
+      {!isLoading && !error && visibleWorkspaces && visibleWorkspaces.length > 0 && user && viewMode === "grid" && (
         <div className="mt-8 flex flex-col gap-8">
           {visibleWorkspaces.map((workspace) => {
             const canOpen = workspace.accessState === "trial" || workspace.accessState === "purchased";
@@ -246,7 +324,7 @@ export function MyLibraryPage() {
                 <LibraryWorkspaceCard
                   workspace={workspace}
                   userId={user.id}
-                  displayName={(user.user_metadata?.full_name as string | undefined) ?? user.email ?? "A member"}
+                  displayName={displayName}
                   onToggleFavorite={() => handleToggleFavorite(workspace)}
                   isTogglingFavorite={togglingFavoriteId === workspace.license?.id}
                 />
