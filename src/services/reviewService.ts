@@ -58,23 +58,11 @@ export const reviewService = {
     };
   },
 
-  async getForUser(productId: string, userId: string): Promise<ReviewRow | null> {
-    const { data, error } = await supabase
-      .from("reviews")
-      .select("*")
-      .eq("product_id", productId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (error) throw error;
-    return data;
-  },
-
   /**
-   * Batched form of getForUser — one query for every product id at once,
-   * instead of a per-card getForUser call. My Library's dashboard rails and
-   * "All Workspaces" grid both render a ReviewPromptCard per Workspace card,
-   * so without this a member with hundreds of owned Workspaces fired
-   * hundreds of individual review lookups on every render.
+   * One query for every product id at once — My Library's dashboard rails
+   * and "All Workspaces" grid both render a ReviewPromptCard per Workspace
+   * card, so without this a member with hundreds of owned Workspaces would
+   * fire hundreds of individual review lookups on every render.
    */
   async getForUserBatch(userId: string, productIds: string[]): Promise<ReviewRow[]> {
     if (productIds.length === 0) return [];
