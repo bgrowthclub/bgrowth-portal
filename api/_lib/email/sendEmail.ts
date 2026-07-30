@@ -1,3 +1,5 @@
+import { EMAIL_FROM, EMAIL_REPLY_TO } from "./senderIdentity.js";
+
 const RESEND_API_URL = "https://api.resend.com/emails";
 
 export interface SendEmailInput {
@@ -21,23 +23,21 @@ export interface SendEmailResult {
  * or call fetch("https://api.resend.com/...") directly. Swapping providers
  * later means changing this one function's body.
  *
- * Requires RESEND_API_KEY. RESEND_FROM_EMAIL must be an address on a
- * domain verified in the Resend dashboard — Resend rejects sends from an
- * unverified domain, and its own sandbox address (onboarding@resend.dev)
- * can only send to the account owner's own email, not real members.
+ * Requires RESEND_API_KEY. The sending address comes from
+ * ./senderIdentity.ts (EMAIL_FROM_ADDRESS), not read here directly — it
+ * must be on a domain verified in the Resend dashboard, or Resend rejects
+ * the send; its own sandbox address (onboarding@resend.dev) can only send
+ * to the account owner's own email, not real members.
  */
 export async function sendEmail({ to, subject, html, replyTo }: SendEmailInput): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL;
-  // Every send's reply path is the real, monitored BGrowth support inbox by
-  // default — RESEND_FROM_EMAIL (e.g. notifications@bgrowthclub.com) is
-  // often a no-reply-style sending address, so without this a customer who
-  // hits "reply" on any transactional email gets nothing back. A caller can
-  // still override it for a specific email by passing its own `replyTo`.
-  const effectiveReplyTo = replyTo ?? process.env.SUPPORT_EMAIL;
+  // A caller can still override the reply-to for a specific email by
+  // passing its own `replyTo` — otherwise every send replies to the same
+  // address it came from (see ./senderIdentity.ts).
+  const effectiveReplyTo = replyTo ?? EMAIL_REPLY_TO;
 
-  if (!apiKey || !from) {
-    return { ok: false, error: "RESEND_API_KEY or RESEND_FROM_EMAIL is not configured." };
+  if (!apiKey) {
+    return { ok: false, error: "RESEND_API_KEY is not configured." };
   }
 
   try {
@@ -48,7 +48,7 @@ export async function sendEmail({ to, subject, html, replyTo }: SendEmailInput):
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from,
+        from: EMAIL_FROM,
         to,
         subject,
         html,

@@ -13,6 +13,13 @@
   way api/_lib/email/layout.ts does, since Supabase's dashboard only accepts
   static HTML. Keep this file's structure in sync with layout.ts by hand if
   that ever changes.
+
+  Sender identity (From Name/Address, Reply-To) for this email is NOT set
+  here — it's controlled by Supabase's own Project Settings → Auth → SMTP
+  Settings screen, separate from this codebase's api/_lib/email/senderIdentity.ts
+  (which only governs emails this app sends directly via Resend). Set that
+  screen's values to match senderIdentity.ts by hand so every email a member
+  receives looks like it came from the same sender — see DEPLOYMENT.md.
 -->
 <!doctype html>
 <html lang="en">

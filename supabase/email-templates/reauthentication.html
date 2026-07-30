@@ -1,14 +1,22 @@
 <!--
-  Supabase Dashboard → Authentication → Email Templates → Reset Password.
+  Supabase Dashboard → Authentication → Email Templates → Reauthentication.
   Paste this into the "Message body" field.
 
   Also set the "Subject heading" field (separate from Message body) to:
-    Reset your BGrowth password
+    Your BGrowth verification code
 
   Replace both YOUR_PORTAL_DOMAIN and YOUR_SUPPORT_EMAIL below with the real
-  production Portal URL and the official BGrowth support address, same as
-  confirm-signup.html. Keep this file's structure in sync with
-  api/_lib/email/layout.ts by hand if that ever changes.
+  production Portal URL (e.g. app.bgrowthclub.com) and the official BGrowth
+  support address before pasting — email clients load images from an
+  absolute URL, and this file can't read PORTAL_PUBLIC_URL/SUPPORT_EMAIL the
+  way api/_lib/email/layout.ts does, since Supabase's dashboard only accepts
+  static HTML. Keep this file's structure in sync with layout.ts by hand if
+  that ever changes.
+
+  Note: unlike the other five templates, Reauthentication has no
+  ConfirmationURL — Supabase issues a short numeric {{ .Token }} the member
+  types back into the app to confirm a sensitive action, so this template
+  shows a code instead of a button.
 
   Sender identity (From Name/Address, Reply-To) for this email is NOT set
   here — it's controlled by Supabase's own Project Settings → Auth → SMTP
@@ -33,7 +41,7 @@
   </head>
   <body style="margin:0; padding:0; background-color:#f4f6fb;">
     <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; opacity:0;">
-      Reset the password for your BGrowth account.
+      Your BGrowth verification code: {{ .Token }}
     </div>
     <div style="background-color:#f4f6fb; padding:32px 16px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
       <table role="presentation" width="100%" style="max-width:480px; margin:0 auto; background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 1px 3px rgba(16,24,40,0.08);">
@@ -45,18 +53,15 @@
         </tr>
         <tr>
           <td class="bg-email-content" style="padding:32px;">
-            <h1 style="margin:0 0 12px; font-size:22px; font-weight:700; color:#0B1C3B;">Reset your password</h1>
+            <h1 style="margin:0 0 12px; font-size:22px; font-weight:700; color:#0B1C3B;">Confirm it's you</h1>
             <p style="margin:0 0 24px; font-size:15px; line-height:1.6; color:#475569;">
-              We received a request to reset the password for your BGrowth account. Click below to choose a new one.
+              For your security, enter this verification code in BGrowth to continue with your sensitive action.
             </p>
-            <div style="margin-top:8px;">
-              <a href="{{ .ConfirmationURL }}"
-                 style="display:inline-block; background:#1061EC; color:#ffffff; font-weight:600; font-size:15px; text-decoration:none; padding:14px 28px; border-radius:999px;">
-                Reset my password
-              </a>
+            <div style="margin:0 0 24px; text-align:center;">
+              <span style="display:inline-block; background:#f4f6fb; color:#0B1C3B; font-weight:700; font-size:32px; letter-spacing:0.2em; padding:16px 32px; border-radius:12px;">{{ .Token }}</span>
             </div>
-            <p style="margin:24px 0 0; font-size:13px; line-height:1.6; color:#94a3b8;">
-              If you didn't request this, you can safely ignore this email — your password won't change.
+            <p style="margin:0; font-size:13px; line-height:1.6; color:#94a3b8;">
+              If you didn't request this code, you can safely ignore this email.
             </p>
           </td>
         </tr>

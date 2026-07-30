@@ -311,9 +311,11 @@ increments); it won't create duplicate product rows, since it upserts on
    | `SUPABASE_SERVICE_ROLE_KEY` | service_role key from Phase 1 — **server-side only, never `VITE_`-prefixed** |
    | `PUBLISHING_ENGINE_SECRET` | generate one now: `openssl rand -hex 32` — save this value, Studio needs the identical string in Phase 6 |
    | `RESEND_API_KEY` | from your Resend dashboard (resend.com/api-keys) — powers `api/notifications/*` (Trial Activated, Trial Review Request) and the Purchase Confirmation email sent directly from `api/webhooks/stripe.ts`/`api/checkout/create-session.ts` |
-   | `RESEND_FROM_EMAIL` | e.g. `BGrowth <notifications@bgrowthclub.com>` — the address part **must** be on a domain verified in Resend (Domains tab), or every send is rejected. Resend's own sandbox address only delivers to the account owner, never real members |
+   | `EMAIL_FROM_NAME` | Optional — defaults to `BGrowth` (set in `api/_lib/email/senderIdentity.ts`, the one file every email-sending function reads sender identity from). Override only if the display name should differ from the default |
+   | `EMAIL_FROM_ADDRESS` | Optional — defaults to `info@benterprises.biz`, BGrowth's initial launch sender. **Must** be on a domain verified in Resend (Domains tab), or every send is rejected. Resend's own sandbox address only delivers to the account owner, never real members. Change this (and redeploy) to switch senders later — e.g. to a future `@bgrowth.app` address — with no template or code changes needed |
+   | `EMAIL_REPLY_TO` | Optional — defaults to whatever `EMAIL_FROM_ADDRESS` resolves to, so every transactional email's "reply" goes back to the same address it came from. Override only if replies should route somewhere else |
    | `PORTAL_PUBLIC_URL` | same as the production URL you'll copy in step 4 below — used to build the logo image and "Open Workspace" link inside notification emails, and the QR code/link in the auto-generated Welcome PDF (`api/publishing-engine/publish.ts`) — without it, publishing still succeeds but the Welcome PDF omits its "Start Your Workspace" section rather than emit a broken link. Also used by `api/checkout/create-session.ts` to build Stripe's success/cancel redirect URLs — without it, Buy Now on a paid Workspace shows a clear error instead of starting checkout. Also builds every notification email's Privacy Policy/Terms of Service footer links (`api/_lib/email/layout.ts`) — without it, those two footer links are omitted rather than emitted as broken relative URLs |
-   | `SUPPORT_EMAIL` | the real, monitored BGrowth support inbox (e.g. `support@bgrowthclub.com`) — powers the "Support" footer link every notification email renders (`api/_lib/email/layout.ts`), **and** is every Resend email's default reply-to address (`api/_lib/email/sendEmail.ts`), so hitting "reply" on any of them (Trial Activated, Trial Review Request, Purchase Confirmation) reaches a real inbox instead of `RESEND_FROM_EMAIL`'s send-only address. Without it, the footer link is omitted and there's no reply-to at all — not a broken one, just absent |
+   | `SUPPORT_EMAIL` | the real, monitored BGrowth support inbox (e.g. `support@bgrowthclub.com`) — powers only the "Support" footer link every notification email renders (`api/_lib/email/layout.ts`). No longer affects reply-to — see `EMAIL_REPLY_TO` above. Without it, the footer link is simply omitted |
    | `STRIPE_SECRET_KEY` | Optional for now — the purchase flow (`api/checkout/create-session.ts`) ships as real, working code, but isn't required to deploy. Add it once you've connected a real Stripe account; until then, a free Workspace's "Get Started Free" still works (it never touches Stripe), and a paid Workspace's Buy Now shows "Checkout isn't set up yet" instead of failing |
    | `STRIPE_WEBHOOK_SECRET` | Same "optional for now" note as above — needed by `api/webhooks/stripe.ts` to verify that an incoming event genuinely came from Stripe. Get it from the Stripe Dashboard after adding a webhook endpoint pointed at `<your-portal-domain>/api/webhooks/stripe`, subscribed to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, and `checkout.session.async_payment_failed` — access is only granted once a session's `payment_status` is actually `paid` (immediately on `checkout.session.completed` for card payments; on the `async_payment_succeeded` event for payment methods that settle later) |
 
@@ -371,10 +373,13 @@ Now that Portal's real URL exists (Phase 5), go back to Supabase:
    required. If it's off, signup will skip straight to a confirmed
    session and Verify Email becomes unreachable/unnecessary — fine
    functionally, but not what the built flow assumes.
-3. **Authentication → Emails**: paste `supabase/email-templates/confirm-signup.html`
-   into the "Confirm signup" template's message body, and
-   `supabase/email-templates/reset-password.html` into "Reset Password" —
-   both use the real BGrowth logo/brand color, a proper responsive HTML
+3. **Authentication → Emails**: paste each file in
+   `supabase/email-templates/` into its matching dashboard template's
+   message body — `confirm-signup.html` → "Confirm signup",
+   `reset-password.html` → "Reset Password", `magic-link.html` → "Magic
+   Link", `invite-user.html` → "Invite user", `change-email-address.html`
+   → "Change Email Address", `reauthentication.html` → "Reauthentication".
+   All six use the real BGrowth logo/brand color, a proper responsive HTML
    shell (viewport meta + a mobile media query), a hidden inbox-preview
    line, and footer links to Support/Privacy/Terms, matching every other
    transactional email (`api/_lib/email/layout.ts`) instead of Supabase's
@@ -385,10 +390,21 @@ Now that Portal's real URL exists (Phase 5), go back to Supabase:
    `YOUR_SUPPORT_EMAIL` (the real, monitored support inbox — must match
    whatever you set `SUPPORT_EMAIL` to below) in each file. Also set each
    template's separate **"Subject heading"** field in the dashboard (not
-   part of the pasted body) — `Confirm your BGrowth email` and `Reset your
-   BGrowth password` respectively — so the subject line matches the rest of
-   the platform's tone instead of Supabase's generic defaults.
-4. **Production email deliverability** (flagged in
+   part of the pasted body) — see the top-of-file comment in each `.html`
+   for its exact subject line — so the subject matches the rest of the
+   platform's tone instead of Supabase's generic defaults.
+4. **Sender identity for these six emails is configured separately, in
+   Supabase, not in this codebase.** `EMAIL_FROM_NAME`/`EMAIL_FROM_ADDRESS`/
+   `EMAIL_REPLY_TO` (above) only control emails this app sends directly via
+   Resend (Trial Activated, Trial Review Request, Purchase Confirmation) —
+   Supabase Auth's own emails (this step) use whatever sender identity is
+   set under **Project Settings → Auth → SMTP Settings**. To keep the
+   sender consistent across both systems, set that screen's From Name/From
+   Email/Reply-To to the same values as `EMAIL_FROM_NAME`/
+   `EMAIL_FROM_ADDRESS`/`EMAIL_REPLY_TO` by hand — there's no automatic
+   sync between the two, since Supabase has no API this app calls to read
+   or set it.
+5. **Production email deliverability** (flagged in
    `POST_LAUNCH_IMPROVEMENTS.md`, worth a decision now rather than after
    users start signing up): Supabase's built-in email sending has low
    rate limits meant for development. For real signup volume, configure a
@@ -399,15 +415,18 @@ Now that Portal's real URL exists (Phase 5), go back to Supabase:
    rather than discover it live.
 
    **This is a separate integration from `RESEND_API_KEY` above.**
-   Confirm signup / Reset Password are sent by Supabase Auth itself,
-   server-side, using whatever's configured here — the Portal's own code
-   never calls into that path. `RESEND_API_KEY`/`api/_lib/email/` is a
-   completely different integration, for emails *this app* decides to send
-   (Trial Activated, Trial Review Request, Purchase Confirmation). If you
-   want Supabase's own auth emails to also go through Resend, add Resend's
-   SMTP credentials (from its dashboard, not the API key above) to this
-   SMTP Settings screen — that's the only way those specific emails route
-   through Resend.
+   Confirm signup / Reset Password / Magic Link / Invite / Change Email /
+   Reauthentication are all sent by Supabase Auth itself, server-side,
+   using whatever's configured here — the Portal's own code never calls
+   into that path. `RESEND_API_KEY`/`api/_lib/email/` is a completely
+   different integration, for emails *this app* decides to send (Trial
+   Activated, Trial Review Request, Purchase Confirmation). If you want
+   Supabase's own auth emails to also go through Resend, add Resend's SMTP
+   credentials (from its dashboard, not the API key above) to this SMTP
+   Settings screen — that's the only way those specific emails route
+   through Resend, and matching its From Name/Address/Reply-To to step 4
+   above keeps every email a member receives, auth or transactional,
+   looking like it came from the same sender.
 
 ---
 
@@ -475,11 +494,11 @@ real — not just "should work."
 | Publish to Portal returns 500 with a Supabase error | Check `SUPABASE_SERVICE_ROLE_KEY`/`SUPABASE_URL` are set on the **Portal** project (not the anon key by mistake) |
 | A product doesn't appear on the storefront after publishing | Check its `status` — only `published` rows are publicly readable; `draft` is correctly invisible, not a bug |
 | Trial activation fails with a constraint error | Working as designed — that member already has a trial license; the one-trial-per-user index is doing its job |
-| Trial Activated email never arrives, but activation itself succeeds | Working as designed if `RESEND_API_KEY`/`RESEND_FROM_EMAIL` aren't set yet — the endpoint responds `{ ok: true, sent: false }` and logs the reason server-side rather than failing the trial. Check Vercel's function logs for `api/notifications/trial-activated`, and confirm `RESEND_FROM_EMAIL`'s domain is verified in Resend's dashboard, not just the API key |
+| Trial Activated email never arrives, but activation itself succeeds | Working as designed if `RESEND_API_KEY` isn't set yet — the endpoint responds `{ ok: true, sent: false }` and logs the reason server-side rather than failing the trial. Check Vercel's function logs for `api/notifications/trial-activated`, and confirm `EMAIL_FROM_ADDRESS` (see `api/_lib/email/senderIdentity.ts`) is on a domain verified in Resend's dashboard, not just the API key |
 | Hitting F5 (or opening a deep link like `/workspace/<slug>` directly) returns Vercel's `404: NOT_FOUND` | `vercel.json`'s SPA rewrite is missing or not deployed — confirm it exists at the repo root and redeploy; without it, only client-side navigation (`<Link>` clicks) works, since a real browser navigation/refresh hits Vercel's static hosting directly, before React Router ever runs |
 | Buy Now on a paid Workspace shows "Checkout isn't set up yet" | Working as designed until `STRIPE_SECRET_KEY` is configured (see Phase 5) — a free Workspace's "Get Started Free" is unaffected |
 | A member paid via Stripe but never got access | Check the Stripe Dashboard's webhook logs for a failed delivery to `/api/webhooks/stripe`, and confirm `STRIPE_WEBHOOK_SECRET` matches the endpoint's signing secret exactly; also check Vercel's function logs for `api/webhooks/stripe` for a `grant_purchased_license` error. If the payment method was one that settles asynchronously, a short delay before access appears is expected — access is deliberately withheld until `checkout.session.async_payment_succeeded` confirms `payment_status: "paid"`, not granted the moment `checkout.session.completed` fires |
-| Access was granted (Stripe or free) but the Purchase Confirmation email never arrives | Same as Trial Activated above — working as designed if `RESEND_API_KEY`/`RESEND_FROM_EMAIL` aren't set yet; `notifyPurchaseConfirmed()` logs the reason to Vercel's function logs (`api/webhooks/stripe` or `api/checkout/create-session`) rather than failing the purchase itself |
+| Access was granted (Stripe or free) but the Purchase Confirmation email never arrives | Same as Trial Activated above — working as designed if `RESEND_API_KEY` isn't set yet; `notifyPurchaseConfirmed()` logs the reason to Vercel's function logs (`api/webhooks/stripe` or `api/checkout/create-session`) rather than failing the purchase itself |
 
 ---
 
@@ -495,7 +514,9 @@ SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 PUBLISHING_ENGINE_SECRET=
 RESEND_API_KEY=
-RESEND_FROM_EMAIL=
+EMAIL_FROM_NAME=
+EMAIL_FROM_ADDRESS=
+EMAIL_REPLY_TO=
 PORTAL_PUBLIC_URL=
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
