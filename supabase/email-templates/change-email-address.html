@@ -56,8 +56,8 @@
           <td class="bg-email-content" style="padding:32px;">
             <h1 style="margin:0 0 12px; font-size:22px; font-weight:700; color:#0B1C3B;">Confirm your new email</h1>
             <p style="margin:0 0 24px; font-size:15px; line-height:1.6; color:#475569;">
-              We received a request to change the email address on your BGrowth account (currently <strong>{{ .Email }}</strong>) to this address.
-              Confirm below to finish the change.
+              We received a request to change the email address on your BGrowth account from
+              <strong>{{ .Email }}</strong> to <strong>{{ .NewEmail }}</strong>. Confirm below to finish the change.
             </p>
             <div style="margin-top:8px;">
               <a href="{{ .ConfirmationURL }}"
