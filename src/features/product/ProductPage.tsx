@@ -11,11 +11,14 @@ import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ProductHero } from "./components/ProductHero";
 import { ProductTrustBadges } from "./components/ProductTrustBadges";
 import { ProductLongDescription } from "./components/ProductLongDescription";
+import { ProductScreenshotsSection } from "./components/ProductScreenshotsSection";
 import { ProductFeatures } from "./components/ProductFeatures";
 import { ProductIncluded } from "./components/ProductIncluded";
 import { ProductHowItWorks } from "./components/ProductHowItWorks";
+import { ProductReviewsSection } from "./components/ProductReviewsSection";
 import { ProductRelatedWorkspaces } from "./components/ProductRelatedWorkspaces";
 import { ProductFaqSection } from "./components/ProductFaqSection";
+import { ProductPricingSection } from "./components/ProductPricingSection";
 
 /**
  * The single source of truth for every published Workspace, generated
@@ -96,14 +99,17 @@ export function ProductPage() {
   return (
     <div>
       <Breadcrumb items={[{ label: "Home", to: "/" }, { label: product.name }]} />
-      <ProductHero product={product} isAuthenticated={Boolean(user)} />
+      <ProductHero product={product} />
       <ProductTrustBadges product={product} />
       <ProductLongDescription product={product} />
+      <ProductScreenshotsSection product={product} />
       <ProductFeatures product={product} />
       <ProductIncluded product={product} />
       <ProductHowItWorks product={product} />
+      <ProductReviewsSection productId={product.id} />
       <ProductRelatedWorkspaces currentProductId={product.id} categoryId={product.category_id} />
       <ProductFaqSection product={product} />
+      <ProductPricingSection product={product} isAuthenticated={Boolean(user)} />
     </div>
   );
 }

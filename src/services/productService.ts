@@ -42,6 +42,14 @@ export const productService = {
     return data;
   },
 
+  /** Home's "Continue Learning" rail: looks up the handful of products behind a member's in-progress workspace_instances. */
+  async fetchByIds(ids: string[]): Promise<ProductRow[]> {
+    if (ids.length === 0) return [];
+    const { data, error } = await supabase.from("products").select("*").in("id", ids);
+    if (error) throw error;
+    return data ?? [];
+  },
+
   /**
    * My Library's product list: every published Workspace, PLUS any
    * Workspace the member holds a license for regardless of its current

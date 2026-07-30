@@ -48,7 +48,12 @@ export function Carousel({ children, ariaLabel }: CarouselProps) {
   );
 }
 
-/** One rail item's fixed-width wrapper — snaps to the row's scroll-start, sized so ~2.5 cards preview at desktop widths. */
-export function CarouselItem({ children }: { children: ReactNode }) {
-  return <div className="w-[280px] flex-none snap-start sm:w-[320px]">{children}</div>;
+/**
+ * One rail item's fixed-width wrapper — snaps to the row's scroll-start.
+ * Defaults to product-card width (~2.5 cards preview at desktop widths);
+ * pass `className` to override for a differently-shaped item (e.g. a
+ * larger screenshot preview) without affecting any existing caller.
+ */
+export function CarouselItem({ children, className = "w-[280px] sm:w-[320px]" }: { children: ReactNode; className?: string }) {
+  return <div className={`flex-none snap-start ${className}`}>{children}</div>;
 }

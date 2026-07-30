@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -16,15 +17,21 @@ import { BrowseFilterBar } from "./components/BrowseFilterBar";
  * catalogService.browseCatalog() for the query it drives and
  * supabase/migrations/0018_catalog_discovery.sql for the indexes that keep
  * it index-backed at any catalog size. Public (see src/app/routes.tsx) —
- * anyone can browse; only the Buy/Trial CTA on each card is gated (see
- * CatalogProductCard's own signed-out handling).
+ * anyone can browse; every card is pure discovery (CatalogProductCard links
+ * to the Product Details page), never a direct Buy/Trial action — that only
+ * ever happens from /product/:slug (see ProductPricingSection).
  */
 export function MarketplacePage() {
   const { user, isLoading: isLoadingAuth } = useAuth();
+  const [searchParams] = useSearchParams();
 
   const [q, setQ] = useState("");
   const debouncedQ = useDebouncedValue(q, 300);
-  const [categorySlug, setCategorySlug] = useState<string | undefined>(undefined);
+  // Read once on mount — lets a Home "Categories" card deep-link straight
+  // into a pre-filtered Browse (?category=<slug>). Not a full filter-to-URL
+  // sync (every other filter stays local state only) — that's broader scope
+  // than this needs.
+  const [categorySlug, setCategorySlug] = useState<string | undefined>(searchParams.get("category") ?? undefined);
   const [contentType, setContentType] = useState<ContentType | undefined>(undefined);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [freeOnly, setFreeOnly] = useState(false);
@@ -46,10 +53,6 @@ export function MarketplacePage() {
   // signed-out visitor, so browsing never waits on auth.
   const { data: licenses, isLoading: isLoadingLicenses } = useAsync(
     () => (user ? licenseService.fetchForUser(user.id) : Promise.resolve([])),
-    [user?.id],
-  );
-  const { data: hasUsedTrial } = useAsync(
-    () => (user ? licenseService.hasUsedTrial(user.id) : Promise.resolve(false)),
     [user?.id],
   );
 
@@ -198,7 +201,6 @@ export function MarketplacePage() {
               <CatalogProductCard
                 key={item.product_id}
                 item={item}
-                hasUsedTrial={hasUsedTrial ?? false}
                 categoryName={item.category_id ? categoryNameById.get(item.category_id) : undefined}
               />
             ))}

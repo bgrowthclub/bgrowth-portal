@@ -41,6 +41,12 @@ export function getProductIncluded(product: Pick<ProductRow, "metadata">): strin
   return metadata.included && metadata.included.length > 0 ? metadata.included : null;
 }
 
+/** No fallback — the Screenshots section is omitted entirely until Studio publishes this. */
+export function getProductScreenshots(product: Pick<ProductRow, "metadata">): string[] | null {
+  const metadata = readMetadata(product);
+  return metadata.screenshots && metadata.screenshots.length > 0 ? metadata.screenshots : null;
+}
+
 /** Falls back to the shared, product-agnostic DEFAULT_HOW_IT_WORKS — metadata-driven from day one, so a per-product override needs zero Product Page changes once Studio can author one. */
 export function getProductHowItWorks(product: Pick<ProductRow, "metadata">): ProductHowItWorksStep[] {
   const metadata = readMetadata(product);

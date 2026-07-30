@@ -1,17 +1,11 @@
 import { Link } from "react-router-dom";
 import type { CatalogIndexRow } from "@/types/database";
-import { useAuth } from "@/features/auth/AuthContext";
-import { Button } from "@/components/ui/Button";
-import { BuyNowButton } from "@/components/ui/BuyNowButton";
 import { StarRating } from "@/components/ui/StarRating";
 import { formatContentType } from "@/lib/contentType";
-import { setPendingAuthRedirect } from "@/lib/pendingRedirect";
 import { NEW_WINDOW_DAYS } from "@/services/catalogService";
 
 interface CatalogProductCardProps {
   item: CatalogIndexRow;
-  /** Whether this member has ever activated a trial (any Workspace) — gates whether this card still offers "Start Free Trial." */
-  hasUsedTrial: boolean;
   /** Looked up once by the caller (catalogService.getFacets().categories) rather than fetched per card. */
   categoryName?: string;
 }
@@ -23,18 +17,24 @@ interface CatalogProductCardProps {
  * already follow), not a shared "mode" bolted onto any of them. Those three
  * keep reading straight off ProductRow at their existing call sites; this
  * one is the only card that reads a CatalogIndexRow.
+ *
+ * Pure discovery — no purchase/trial action lives here. The whole card (and
+ * its "View Details" button) is a single link to the Product Details page
+ * (/product/:slug); Start Free Trial and Buy Now only ever happen from
+ * there (see ProductPricingSection), never from a card.
  */
-export function CatalogProductCard({ item, hasUsedTrial, categoryName }: CatalogProductCardProps) {
-  const { user } = useAuth();
-  const isAuthenticated = Boolean(user);
-  const canStartTrial = item.is_trial_eligible && !hasUsedTrial;
+export function CatalogProductCard({ item, categoryName }: CatalogProductCardProps) {
   const isNew = item.published_at != null && Date.now() - new Date(item.published_at).getTime() < NEW_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
   return (
-    <div className="card flex h-full flex-col overflow-hidden">
+    <Link to={`/product/${item.slug}`} className="card group flex h-full flex-col overflow-hidden">
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-navy-100 dark:bg-navy-700">
         {item.cover_image_url ? (
-          <img src={item.cover_image_url} alt="" className="h-full w-full object-cover" />
+          <img
+            src={item.cover_image_url}
+            alt=""
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-primary/40">
             <span className="text-4xl font-bold">{item.name.charAt(0)}</span>
@@ -67,35 +67,18 @@ export function CatalogProductCard({ item, hasUsedTrial, categoryName }: Catalog
         )}
 
         <div className="mt-5">
-          {isAuthenticated ? (
-            canStartTrial ? (
-              <Link to={`/trial-selection?product=${item.slug}`}>
-                <Button size="sm" className="w-full">
-                  Start Free Trial
-                </Button>
-              </Link>
-            ) : (
-              <BuyNowButton product={item} />
-            )
-          ) : canStartTrial ? (
-            // Signed-out intent-carrying CTA — same pendingRedirect pattern
-            // ProductHero.tsx already uses for a public page's Start Free
-            // Trial/Buy Now, so a fresh signup lands back on the intended
-            // action instead of a dead-end sign-in.
-            <Link to="/sign-up" onClick={() => setPendingAuthRedirect(`/trial-selection?product=${item.slug}`)}>
-              <Button size="sm" className="w-full">
-                Start Free Trial
-              </Button>
-            </Link>
-          ) : (
-            <Link to="/sign-up" onClick={() => setPendingAuthRedirect(`/product/${item.slug}`)}>
-              <Button size="sm" variant="secondary" className="w-full">
-                {item.is_free ? "Get Started Free" : "Buy Now"}
-              </Button>
-            </Link>
-          )}
+          {/*
+            A styled span, not the Button component — this whole card is
+            already a single <Link>, and nesting a real <button> inside an
+            <a> is invalid HTML (and confuses keyboard/screen-reader focus
+            order). This is the visual "View Details" affordance the whole
+            card already acts on; group-hover mirrors Button's own hover state.
+          */}
+          <span className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-navy-100 bg-white px-4 py-2 text-xs font-semibold text-navy-900 shadow-soft transition-all duration-200 group-hover:border-primary/40 group-hover:text-primary dark:border-white/10 dark:bg-navy-800 dark:text-white">
+            View Details
+          </span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

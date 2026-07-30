@@ -1,26 +1,57 @@
+import { Link } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
-import { licenseService } from "@/services/licenseService";
+import { productService } from "@/services/productService";
+import { workspaceInstanceService } from "@/services/workspaceInstanceService";
 import { catalogService } from "@/services/catalogService";
+import type { ProductRow, WorkspaceInstanceRow } from "@/types/database";
 import { Spinner } from "@/components/ui/Spinner";
 import { Carousel, CarouselItem } from "@/components/ui/Carousel";
 import { CatalogProductCard } from "@/components/catalog/CatalogProductCard";
+import { ContinueLearningCard } from "@/components/catalog/ContinueLearningCard";
 
-type RailKind = "featured" | "new" | "popular" | "recommended";
+type RailKind = "featured" | "new" | "popular";
 const RAILS: { kind: RailKind; title: string; eyebrow: string }[] = [
-  { kind: "featured", title: "Featured Workspaces", eyebrow: "Featured" },
-  { kind: "new", title: "New This Month", eyebrow: "New" },
-  { kind: "popular", title: "Most Popular", eyebrow: "Popular" },
-  { kind: "recommended", title: "Recommended For You", eyebrow: "Recommended" },
+  { kind: "featured", title: "Featured Products", eyebrow: "Featured" },
+  { kind: "new", title: "New Releases", eyebrow: "New" },
+  { kind: "popular", title: "Popular Products", eyebrow: "Popular" },
 ];
+
+interface ContinueLearningEntry {
+  instance: WorkspaceInstanceRow;
+  product: ProductRow;
+}
+
+/** One card per distinct owned Workspace with an in-progress instance — the most recently updated instance if a member has several for the same Workspace — most-recently-updated first. */
+async function loadContinueLearning(userId: string): Promise<ContinueLearningEntry[]> {
+  const instances = await workspaceInstanceService.listForUser(userId);
+  const latestByProduct = new Map<string, WorkspaceInstanceRow>();
+  for (const instance of instances) {
+    if (instance.status !== "in_progress") continue;
+    const existing = latestByProduct.get(instance.product_id);
+    if (!existing || new Date(instance.updated_at) > new Date(existing.updated_at)) {
+      latestByProduct.set(instance.product_id, instance);
+    }
+  }
+  const sorted = Array.from(latestByProduct.values()).sort(
+    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+  );
+  if (sorted.length === 0) return [];
+
+  const products = await productService.fetchByIds(sorted.map((instance) => instance.product_id));
+  const productById = new Map(products.map((product) => [product.id, product]));
+
+  return sorted
+    .map((instance) => ({ instance, product: productById.get(instance.product_id) }))
+    .filter((entry): entry is ContinueLearningEntry => Boolean(entry.product));
+}
 
 /**
  * Home's product-discovery surface — curated horizontal rails over
  * portal.catalog_index (catalogService.getCuratedRail(), see
  * supabase/migrations/0018_catalog_discovery.sql for how each rail is
- * defined) instead of a single unfiltered grid of every published Workspace.
- * Each rail hides itself gracefully when empty, same convention this
- * section already used for its loading/error/empty states.
+ * defined), a Categories strip, and (signed-in only) Continue Learning.
+ * Every rail/section hides itself gracefully when empty.
  */
 export function AvailableWorkspacesSection() {
   const { user } = useAuth();
@@ -29,24 +60,24 @@ export function AvailableWorkspacesSection() {
     () => catalogService.getFacets(),
     [],
   );
-  const { data: hasUsedTrial } = useAsync(
-    () => (user ? licenseService.hasUsedTrial(user.id) : Promise.resolve(false)),
-    [user?.id],
-  );
   const { data: featured, isLoading: isLoadingFeatured } = useAsync(() => catalogService.getCuratedRail("featured"), []);
   const { data: newest, isLoading: isLoadingNew } = useAsync(() => catalogService.getCuratedRail("new"), []);
   const { data: popular, isLoading: isLoadingPopular } = useAsync(() => catalogService.getCuratedRail("popular"), []);
-  const { data: recommended, isLoading: isLoadingRecommended } = useAsync(
-    () => catalogService.getCuratedRail("recommended"),
-    [],
+  const { data: continueLearning, isLoading: isLoadingContinueLearning } = useAsync(
+    () => (user ? loadContinueLearning(user.id) : Promise.resolve([])),
+    [user?.id],
   );
 
-  const railData: Record<RailKind, typeof featured> = { featured, new: newest, popular, recommended };
+  const railData: Record<RailKind, typeof featured> = { featured, new: newest, popular };
   const isLoading =
-    isLoadingFacets || isLoadingFeatured || isLoadingNew || isLoadingPopular || isLoadingRecommended;
+    isLoadingFacets || isLoadingFeatured || isLoadingNew || isLoadingPopular || isLoadingContinueLearning;
 
   const categoryNameById = new Map((facets?.categories ?? []).map((category) => [category.id, category.name]));
-  const hasAnyRailContent = Object.values(railData).some((items) => (items?.length ?? 0) > 0);
+  const categories = facets?.categories ?? [];
+  const hasAnyContent =
+    Object.values(railData).some((items) => (items?.length ?? 0) > 0) ||
+    categories.length > 1 ||
+    (continueLearning?.length ?? 0) > 0;
 
   return (
     <section id="workspaces" className="mx-auto max-w-6xl px-6 py-24">
@@ -70,10 +101,26 @@ export function AvailableWorkspacesSection() {
           </p>
         )}
 
-        {!isLoading && !facetsError && !hasAnyRailContent && (
+        {!isLoading && !facetsError && !hasAnyContent && (
           <p className="text-center text-sm text-navy-400 dark:text-white/40">
             New Workspaces are on the way — check back soon.
           </p>
+        )}
+
+        {!isLoading && !facetsError && continueLearning && continueLearning.length > 0 && (
+          <div>
+            <div className="mb-5">
+              <span className="text-xs font-semibold uppercase tracking-wider text-primary">Continue Learning</span>
+              <h3 className="mt-1 text-xl font-bold text-navy-900 dark:text-white">Pick up where you left off</h3>
+            </div>
+            <Carousel ariaLabel="Continue Learning">
+              {continueLearning.map(({ instance, product }) => (
+                <CarouselItem key={instance.id}>
+                  <ContinueLearningCard instance={instance} product={product} />
+                </CarouselItem>
+              ))}
+            </Carousel>
+          </div>
         )}
 
         {!isLoading &&
@@ -92,7 +139,6 @@ export function AvailableWorkspacesSection() {
                     <CarouselItem key={item.product_id}>
                       <CatalogProductCard
                         item={item}
-                        hasUsedTrial={hasUsedTrial ?? false}
                         categoryName={item.category_id ? categoryNameById.get(item.category_id) : undefined}
                       />
                     </CarouselItem>
@@ -101,6 +147,27 @@ export function AvailableWorkspacesSection() {
               </div>
             );
           })}
+
+        {/* Hidden with only one category — nothing to browse "between" yet (see workspace_categories, currently a single seeded row). */}
+        {!isLoading && !facetsError && categories.length > 1 && (
+          <div>
+            <div className="mb-5">
+              <span className="text-xs font-semibold uppercase tracking-wider text-primary">Categories</span>
+              <h3 className="mt-1 text-xl font-bold text-navy-900 dark:text-white">Browse by category</h3>
+            </div>
+            <div className="flex flex-wrap gap-4">
+              {categories.map((category) => (
+                <Link
+                  key={category.id}
+                  to={`/browse?category=${category.slug}`}
+                  className="card px-6 py-4 text-sm font-semibold text-navy-900 transition hover:border-primary/40 hover:text-primary dark:text-white"
+                >
+                  {category.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

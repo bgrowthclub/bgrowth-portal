@@ -37,6 +37,8 @@ export interface ProductMarketingMetadata {
   features?: ProductFeatureItem[];
   /** Plain bullet list for the "Included in this Workspace" section — no fallback; omitted until Studio authors it. */
   included?: string[];
+  /** Screenshot/preview image URLs for the Product Page's gallery — no fallback; the whole section is omitted until Studio authors this. */
+  screenshots?: string[];
   /** Ordered steps for the "How It Works" section — per-product override; falls back to the shared DEFAULT_HOW_IT_WORKS (src/data/howItWorks.ts) until Studio authors one. */
   howItWorks?: ProductHowItWorksStep[];
   /** Per-product FAQ override — falls back to the shared, product-agnostic FAQS (src/data/faqs.ts) when absent. */

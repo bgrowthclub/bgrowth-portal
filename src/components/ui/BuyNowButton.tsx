@@ -10,9 +10,19 @@ interface BuyNowButtonProps {
   label?: string;
   /** Override for callers on a non-default-theme background (e.g. ProductHero's dark section). */
   priceClassName?: string;
+  /** Defaults to "sm" — every card context wants the compact size; ProductPricingSection's bottom CTA row is the one caller that wants a larger, standalone button. */
+  size?: "sm" | "md" | "lg";
+  /** Defaults to true — every card context wants the button to fill its column; ProductPricingSection sits in a centered row instead, sized to its own content. */
+  fullWidth?: boolean;
 }
 
-export function BuyNowButton({ product, label, priceClassName = "text-navy-400 dark:text-white/40" }: BuyNowButtonProps) {
+export function BuyNowButton({
+  product,
+  label,
+  priceClassName = "text-navy-400 dark:text-white/40",
+  size = "sm",
+  fullWidth = true,
+}: BuyNowButtonProps) {
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +43,7 @@ export function BuyNowButton({ product, label, priceClassName = "text-navy-400 d
 
   return (
     <div>
-      <Button size="sm" variant="secondary" className="w-full" onClick={handleClick} isLoading={isStarting}>
+      <Button size={size} variant="secondary" className={fullWidth ? "w-full" : ""} onClick={handleClick} isLoading={isStarting}>
         {effectiveLabel}
       </Button>
       {priceLabel && <p className={`mt-1 text-center text-xs ${priceClassName}`}>{priceLabel}</p>}

@@ -1,22 +1,22 @@
-import { Link } from "react-router-dom";
 import type { ProductRow } from "@/types/database";
-import { Button } from "@/components/ui/Button";
-import { BuyNowButton } from "@/components/ui/BuyNowButton";
 import { formatTrialSentence } from "@/lib/trial";
-import { formatPrice } from "@/lib/pricing";
-import { setPendingAuthRedirect } from "@/lib/pendingRedirect";
 
 interface ProductHeroProps {
   product: ProductRow;
-  isAuthenticated: boolean;
 }
 
-export function ProductHero({ product, isAuthenticated }: ProductHeroProps) {
+/**
+ * Visual hook only — title, description, cover image, trial teaser line.
+ * Start Free Trial/Buy Now live at the bottom of the page instead (see
+ * ProductPricingSection), not here — the whole point of the redesigned
+ * flow is a real "read about it, then decide" page, not a card-speed
+ * transaction repeated in the hero.
+ */
+export function ProductHero({ product }: ProductHeroProps) {
   const trialSentence =
     product.is_trial_eligible && product.trial_duration != null
       ? formatTrialSentence(product.trial_duration, product.trial_unit)
       : null;
-  const priceLabel = product.is_free ? "Free" : formatPrice(product.price_cents, product.currency);
 
   return (
     <section className="relative overflow-hidden bg-navy-900 text-white">
@@ -37,36 +37,6 @@ export function ProductHero({ product, isAuthenticated }: ProductHeroProps) {
               Try it free for {trialSentence} — no card required.
             </p>
           )}
-
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            {product.is_trial_eligible &&
-              (isAuthenticated ? (
-                <Link to={`/trial-selection?product=${product.slug}`}>
-                  <Button size="lg">Start Free Trial</Button>
-                </Link>
-              ) : (
-                <Link to="/sign-up" onClick={() => setPendingAuthRedirect(`/trial-selection?product=${product.slug}`)}>
-                  <Button size="lg">Start Free Trial</Button>
-                </Link>
-              ))}
-            {isAuthenticated ? (
-              <BuyNowButton product={product} priceClassName="text-white/50" />
-            ) : (
-              // BuyNowButton needs a signed-in session to call
-              // api/checkout/create-session — send a logged-out visitor to
-              // sign up first (returning to this page) instead of letting
-              // them hit a dead-end "Sign in to purchase" error, matching
-              // the Start Free Trial CTA's own signed-out handling above.
-              <div>
-                <Link to="/sign-up" onClick={() => setPendingAuthRedirect(`/product/${product.slug}`)}>
-                  <Button size="sm" variant="secondary" className="w-full">
-                    {product.is_free ? "Get Started Free" : "Buy Now"}
-                  </Button>
-                </Link>
-                {priceLabel && <p className="mt-1 text-center text-xs text-white/50">{priceLabel}</p>}
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="aspect-[4/3] w-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-soft-lg">
