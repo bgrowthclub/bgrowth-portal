@@ -8,9 +8,10 @@
 
   Replace both YOUR_PORTAL_DOMAIN and YOUR_SUPPORT_EMAIL below with the real
   production Portal URL (e.g. app.bgrowthclub.com) and the official BGrowth
-  support address before pasting — email clients load images from an
-  absolute URL, and this file can't read PORTAL_PUBLIC_URL/SUPPORT_EMAIL the
-  way api/_lib/email/layout.ts does, since Supabase's dashboard only accepts
+  support address before pasting — YOUR_PORTAL_DOMAIN builds the Privacy/
+  Terms footer links (this file has no logo image to worry about), and this
+  file can't read PORTAL_PUBLIC_URL/SUPPORT_EMAIL the way
+  api/_lib/email/layout.ts does, since Supabase's dashboard only accepts
   static HTML. Keep this file's structure in sync with layout.ts by hand if
   that ever changes.
 
@@ -29,45 +30,44 @@
     <meta name="color-scheme" content="light" />
     <style>
       @media (max-width: 480px) {
-        .bg-email-header { padding: 20px 24px !important; }
-        .bg-email-content { padding: 24px !important; }
-        .bg-email-footer { padding: 16px 24px !important; }
+        .bg-email-header { padding: 16px 20px !important; }
+        .bg-email-content { padding: 20px !important; }
+        .bg-email-footer { padding: 14px 20px !important; }
       }
     </style>
   </head>
-  <body style="margin:0; padding:0; background-color:#f4f6fb;">
+  <body style="margin:0; padding:0; background-color:#f5f6f8;">
     <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; opacity:0;">
       Confirm your email to activate your first free Workspace trial.
     </div>
-    <div style="background-color:#f4f6fb; padding:32px 16px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-      <table role="presentation" width="100%" style="max-width:480px; margin:0 auto; background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 1px 3px rgba(16,24,40,0.08);">
+    <div style="background-color:#f5f6f8; padding:24px 16px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+      <table role="presentation" width="100%" style="max-width:480px; margin:0 auto; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 1px 2px rgba(16,24,40,0.06);">
         <tr>
-          <td class="bg-email-header" style="background:#0B1C3B; padding:28px 32px; text-align:center;">
-            <img src="https://YOUR_PORTAL_DOMAIN/logo.png" alt="BGrowth" width="40" height="40" style="display:block; margin:0 auto 8px;" />
-            <span style="color:#ffffff; font-size:16px; font-weight:700; letter-spacing:0.02em;">BGrowth Portal</span>
+          <td class="bg-email-header" style="background:#0B1C3B; padding:20px 28px;">
+            <span style="color:#ffffff; font-size:15px; font-weight:700; letter-spacing:0.02em;">BGrowth</span>
           </td>
         </tr>
         <tr>
-          <td class="bg-email-content" style="padding:32px;">
-            <h1 style="margin:0 0 12px; font-size:22px; font-weight:700; color:#0B1C3B;">Confirm your email</h1>
-            <p style="margin:0 0 24px; font-size:15px; line-height:1.6; color:#475569;">
+          <td class="bg-email-content" style="padding:28px;">
+            <h1 style="margin:0 0 8px; font-size:20px; font-weight:700; color:#0B1C3B; line-height:1.3;">Confirm your email</h1>
+            <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#475569;">
               Welcome to BGrowth — you're one step away from activating your first free Workspace trial.
               Confirm your email address to get started.
             </p>
-            <div style="margin-top:8px;">
+            <div style="margin-top:4px;">
               <a href="{{ .ConfirmationURL }}"
-                 style="display:inline-block; background:#1061EC; color:#ffffff; font-weight:600; font-size:15px; text-decoration:none; padding:14px 28px; border-radius:999px;">
+                 style="display:inline-block; background:#1061EC; color:#ffffff; font-weight:600; font-size:14px; text-decoration:none; padding:12px 22px; border-radius:8px;">
                 Confirm my email
               </a>
             </div>
-            <p style="margin:24px 0 0; font-size:13px; line-height:1.6; color:#94a3b8;">
+            <p style="margin:20px 0 0; font-size:13px; line-height:1.6; color:#94a3b8;">
               If you didn't create a BGrowth account, you can safely ignore this email.
             </p>
           </td>
         </tr>
         <tr>
-          <td class="bg-email-footer" style="padding:20px 32px; background:#f8fafc; text-align:center;">
-            <p style="margin:0 0 8px; font-size:12px; color:#94a3b8;">
+          <td class="bg-email-footer" style="padding:18px 28px; border-top:1px solid #eef0f3; text-align:center;">
+            <p style="margin:0 0 6px; font-size:12px; color:#94a3b8;">
               <a href="mailto:YOUR_SUPPORT_EMAIL" style="color:#64748b; text-decoration:underline;">Support</a>
               &nbsp;·&nbsp;
               <a href="https://YOUR_PORTAL_DOMAIN/privacy" style="color:#64748b; text-decoration:underline;">Privacy Policy</a>

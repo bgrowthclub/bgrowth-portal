@@ -20,8 +20,8 @@ export function buildTrialReviewRequestEmail({ fullName, productName }: TrialRev
   const libraryUrl = PORTAL_URL ? `${PORTAL_URL}/library` : undefined;
 
   const bodyHtml = `
-    <p style="margin:0 0 8px; font-size:15px; line-height:1.6; color:#475569;">${greeting}</p>
-    <p style="margin:0 0 24px; font-size:15px; line-height:1.6; color:#475569;">
+    <p style="margin:0 0 6px; font-size:14px; line-height:1.6; color:#475569;">${greeting}</p>
+    <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#475569;">
       Your free trial of <strong>${productName}</strong> has ended. We'd love to hear what you thought —
       it only takes a minute, and it helps other members decide if it's right for them.
     </p>

@@ -19,15 +19,15 @@ export function buildTrialActivatedEmail({ fullName, productName, productSlug, t
   const openUrl = PORTAL_URL ? `${PORTAL_URL}/workspace/${productSlug}` : undefined;
 
   const bodyHtml = `
-    <p style="margin:0 0 8px; font-size:15px; line-height:1.6; color:#475569;">${greeting}</p>
-    <p style="margin:0 0 24px; font-size:15px; line-height:1.6; color:#475569;">
+    <p style="margin:0 0 6px; font-size:14px; line-height:1.6; color:#475569;">${greeting}</p>
+    <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#475569;">
       <strong>${productName}</strong> is ready to go. ${durationSentence}
     </p>
   `;
 
   const html = renderEmailLayout({
     preheader: `${productName} is ready — ${durationSentence}`,
-    heading: "Your trial is active 🎉",
+    heading: "Your trial is active",
     bodyHtml,
     cta: openUrl ? { label: "Open Workspace", url: openUrl } : undefined,
   });
