@@ -89,14 +89,21 @@ export function ProductPricingSection({ product, isAuthenticated, accessState, h
           onClick={() => setIsExpanded((expanded) => !expanded)}
           aria-expanded={isExpanded}
           aria-controls="product-pricing-panel"
-          className="flex w-full items-center justify-between gap-4 py-4 text-left"
+          className="flex w-full items-center justify-between gap-4 py-6 text-left"
         >
-          <span className="flex flex-col">
-            <span className="text-base font-bold text-navy-900 dark:text-white">Pricing &amp; Trial</span>
+          {/*
+            A block-level div (not a row-flex span) so the two lines below
+            stack unconditionally — each child is its own block-level `div`
+            occupying the full line, not relying on flex-direction alone to
+            force the break. min-w-0 lets the summary line wrap/truncate
+            instead of ever forcing this column wider than the row allows.
+          */}
+          <div className="flex min-w-0 flex-col">
+            <div className="text-base font-bold text-navy-900 dark:text-white">Pricing &amp; Trial</div>
             {collapsedSummary && (
-              <span className="mt-0.5 text-[15px] font-medium text-navy-500 dark:text-white/60">{collapsedSummary}</span>
+              <div className="mt-1 text-[15px] font-medium text-navy-500 dark:text-white/60">{collapsedSummary}</div>
             )}
-          </span>
+          </div>
           <ChevronDown
             className={`h-5 w-5 shrink-0 text-navy-400 transition-transform duration-300 dark:text-white/50 ${
               isExpanded ? "rotate-180" : ""
