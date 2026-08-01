@@ -6,7 +6,7 @@ import type { WorkspaceAccessState } from "@/types/workspace";
 import { Button } from "@/components/ui/Button";
 import { BuyNowButton } from "@/components/ui/BuyNowButton";
 import { formatTrialSentence } from "@/lib/trial";
-import { formatPrice } from "@/lib/pricing";
+import { formatPrice, formatPricingSummary } from "@/lib/pricing";
 import { setPendingAuthRedirect } from "@/lib/pendingRedirect";
 
 interface ProductPricingSectionProps {
@@ -29,6 +29,12 @@ interface ProductPricingSectionProps {
  * stays reachable at every scroll position, so this never hides the
  * ability to buy/trial, only the detail until the visitor asks for it.
  *
+ * The collapsed header's summary text (Free / $XX One-time / X-day Free
+ * Trial • $XX One-time) is entirely derived from this product's own price/
+ * trial fields via formatPricingSummary — never a hardcoded amount or
+ * duration, so a future price or trial-length change in Studio is reflected
+ * here automatically.
+ *
  * Same CTA branching this page has always used (signed-in vs. signed-out
  * pendingRedirect, so a fresh signup/sign-in lands back on the intended
  * action — see SignInPage.tsx/VerifyEmailPage.tsx), plus the three
@@ -46,6 +52,12 @@ export function ProductPricingSection({ product, isAuthenticated, accessState, h
       ? formatTrialSentence(product.trial_duration, product.trial_unit)
       : null;
   const priceLabel = product.is_free ? "Free" : formatPrice(product.price_cents, product.currency);
+  // Collapsed-header teaser — Free / $XX One-time / X-day Free Trial • $XX
+  // One-time — driven entirely by this product's own configuration (see
+  // formatPricingSummary), never the viewing member's personal state
+  // (trial-already-used, expired, etc.); those nuances only appear once
+  // expanded, same as before.
+  const collapsedSummary = formatPricingSummary(product);
 
   const isOwned = accessState === "trial" || accessState === "purchased";
   const isExpired = accessState === "expired";
@@ -79,7 +91,12 @@ export function ProductPricingSection({ product, isAuthenticated, accessState, h
           aria-controls="product-pricing-panel"
           className="flex w-full items-center justify-between gap-4 py-4 text-left"
         >
-          <span className="text-sm font-semibold text-navy-900 dark:text-white">Pricing &amp; Trial</span>
+          <span className="flex items-baseline gap-2">
+            <span className="text-sm font-semibold text-navy-900 dark:text-white">Pricing &amp; Trial</span>
+            {collapsedSummary && (
+              <span className="text-sm text-navy-400 dark:text-white/50">{collapsedSummary}</span>
+            )}
+          </span>
           <ChevronDown
             className={`h-5 w-5 shrink-0 text-navy-400 transition-transform duration-300 dark:text-white/50 ${
               isExpanded ? "rotate-180" : ""
