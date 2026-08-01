@@ -83,7 +83,7 @@ export async function generateWelcomePdf(input: GenerateWelcomePdfInput): Promis
 
   writer.addSpacer(8);
   writer.addHeading("Need Help?");
-  writer.addParagraph("Questions about this Workspace? Reach the BGrowth Club team any time at support@bgrowthclub.com.");
+  writer.addParagraph("Questions about this Workspace? Reach the BGrowth Club team any time at info@bgrowth.app.");
 
   await drawStartWorkspaceSection(writer, input);
 
