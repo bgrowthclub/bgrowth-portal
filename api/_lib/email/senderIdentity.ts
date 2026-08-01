@@ -5,13 +5,13 @@
  * @bgrowth.app domain once it's verified in Resend) is an env var change
  * here, not a template or logic change.
  *
- * Defaults match the initial launch sender BGrowth decided on
- * (info@benterprises.biz) so a deploy with no EMAIL_* env vars set still
- * sends correctly — but every value is overridable via env var so a future
- * domain switch never requires touching code.
+ * Defaults match BGrowth's production sender identity (info@bgrowth.app)
+ * so a deploy with no EMAIL_* env vars set still sends correctly — but
+ * every value is overridable via env var so a future domain switch never
+ * requires touching code.
  */
 const DEFAULT_FROM_NAME = "BGrowth";
-const DEFAULT_FROM_ADDRESS = "info@benterprises.biz";
+const DEFAULT_FROM_ADDRESS = "info@bgrowth.app";
 
 export const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME?.trim() || DEFAULT_FROM_NAME;
 export const EMAIL_FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS?.trim() || DEFAULT_FROM_ADDRESS;

@@ -27,7 +27,7 @@ each one does.
 - [ ] `PUBLISHING_ENGINE_SECRET`
 - [ ] `PORTAL_PUBLIC_URL` — the real production domain (update and redeploy once Vercel assigns it, or once a custom domain is attached)
 - [ ] `RESEND_API_KEY`
-- [ ] `EMAIL_FROM_ADDRESS` — leave unset to use the default (`info@benterprises.biz`), or set explicitly
+- [ ] `EMAIL_FROM_ADDRESS` — leave unset to use the default (`info@bgrowth.app`), or set explicitly
 - [ ] `EMAIL_FROM_NAME` — leave unset to use the default (`BGrowth`), or set explicitly
 - [ ] `EMAIL_REPLY_TO` — leave unset to default to `EMAIL_FROM_ADDRESS`, or set explicitly
 - [ ] `SUPPORT_EMAIL` — the real, monitored support inbox
@@ -42,7 +42,7 @@ each one does.
 
 ## 3. Resend — sending domain
 
-- [ ] Add and verify the sending domain for `EMAIL_FROM_ADDRESS` (`info@benterprises.biz`'s domain) in the Resend dashboard's **Domains** tab
+- [ ] Add and verify the sending domain for `EMAIL_FROM_ADDRESS` (`info@bgrowth.app`'s domain) in the Resend dashboard's **Domains** tab
 - [ ] Confirm the domain shows **Verified**, not just "Pending" — sends from an unverified domain are rejected outright, and Resend's own sandbox address (`onboarding@resend.dev`) only delivers to the account owner, never real members
 
 ## 4. Supabase — Auth URL configuration
@@ -103,8 +103,8 @@ or set it, so it's set here by hand, once:
 
 - [ ] Custom SMTP provider configured (Resend, Postmark, or SendGrid all work) — Supabase's built-in email sending has development-only rate limits; the first real signup burst will hit them if this isn't done
 - [ ] **From Name** set to `BGrowth`
-- [ ] **From Email** set to `info@benterprises.biz`
-- [ ] **Reply-To** set to `info@benterprises.biz`
+- [ ] **From Email** set to `info@bgrowth.app`
+- [ ] **Reply-To** set to `info@bgrowth.app`
 - [ ] (if using Resend for this too) SMTP credentials come from Resend's dashboard — **not** the same as `RESEND_API_KEY`, which is a separate REST API key used only by this app's own code (step 1)
 
 ## 8. Stripe (only if selling paid Workspaces at launch)
@@ -119,7 +119,7 @@ Do this as a real human, with a real inbox, against the live URL — not a
 local/staging environment:
 
 - [ ] **Sign up** with a real email → receive the Confirm Signup email within a minute or two
-  - [ ] Sender shows as **BGrowth** `<info@benterprises.biz>` (or Supabase's fallback if step 7 wasn't done yet — confirm which)
+  - [ ] Sender shows as **BGrowth** `<info@bgrowth.app>` (or Supabase's fallback if step 7 wasn't done yet — confirm which)
   - [ ] Subject reads `Confirm your BGrowth email`
   - [ ] Logo image loads (proves `YOUR_PORTAL_DOMAIN` was replaced correctly)
   - [ ] "Confirm my email" button opens the production Portal, not `localhost`, and completes sign-up
@@ -129,7 +129,7 @@ local/staging environment:
   - [ ] Same sender/branding/link checks as above
   - [ ] "Reset my password" completes the flow and returns to a working session
 - [ ] Open both received emails on an actual phone (not just a desktop client) to confirm mobile rendering
-- [ ] Reply to one of these emails from a real inbox → confirm it reaches `info@benterprises.biz`, not a no-reply/bounce address
+- [ ] Reply to one of these emails from a real inbox → confirm it reaches `info@bgrowth.app`, not a no-reply/bounce address
 
 ## 10. Verify the app's own transactional emails (Resend)
 
