@@ -14,6 +14,7 @@ import { ProductLongDescription } from "./components/ProductLongDescription";
 import { ProductScreenshotsSection } from "./components/ProductScreenshotsSection";
 import { ProductFeatures } from "./components/ProductFeatures";
 import { ProductIncluded } from "./components/ProductIncluded";
+import { ProductWorkspacePreview } from "./components/ProductWorkspacePreview";
 import { ProductHowItWorks } from "./components/ProductHowItWorks";
 import { ProductReviewsSection } from "./components/ProductReviewsSection";
 import { ProductRelatedWorkspaces } from "./components/ProductRelatedWorkspaces";
@@ -109,6 +110,7 @@ export function ProductPage() {
         <ProductScreenshotsSection product={product} />
         <ProductFeatures product={product} />
         <ProductIncluded product={product} />
+        <ProductWorkspacePreview product={product} />
         <ProductHowItWorks product={product} />
         <ProductReviewsSection productId={product.id} />
         <ProductRelatedWorkspaces currentProductId={product.id} categoryId={product.category_id} />

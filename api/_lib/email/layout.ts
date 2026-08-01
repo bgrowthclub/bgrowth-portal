@@ -80,7 +80,7 @@ export function renderEmailLayout({ preheader, heading, bodyHtml, cta }: EmailLa
         <tr>
           <td class="bg-email-footer" style="padding:18px 28px; border-top:1px solid #eef0f3; text-align:center;">
             ${footerLinks ? `<p style="margin:0 0 6px; font-size:12px; color:#94a3b8;">${footerLinks}</p>` : ""}
-            <p style="margin:0 0 4px; font-size:12px; color:#94a3b8;">BGrowth Club · bgrowthclub.com</p>
+            <p style="margin:0 0 4px; font-size:12px; color:#94a3b8;">BGrowth Club · portal.bgrowth.app</p>
             <p style="margin:0; font-size:11px; color:#b3bac4;">© 2026 BGrowth. All rights reserved.</p>
           </td>
         </tr>

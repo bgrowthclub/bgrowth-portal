@@ -385,7 +385,7 @@ Now that Portal's real URL exists (Phase 5), go back to Supabase:
    transactional email (`api/_lib/email/layout.ts`) instead of Supabase's
    generic default styling. Before pasting, replace **both**
    `YOUR_PORTAL_DOMAIN` (real production Portal domain, e.g.
-   `app.bgrowthclub.com` — email clients need an absolute image URL, a
+   `portal.bgrowth.app` — email clients need an absolute image URL, a
    relative `/logo.png` won't resolve from an inbox) **and**
    `YOUR_SUPPORT_EMAIL` (the real, monitored support inbox — must match
    whatever you set `SUPPORT_EMAIL` to below) in each file. Also set each

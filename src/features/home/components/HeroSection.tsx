@@ -10,21 +10,33 @@ export function HeroSection() {
       />
       <div className="relative mx-auto max-w-4xl px-6 text-center">
         <span className="eyebrow inline-block rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary-200 animate-fade-in">
-          Free Trial
+          Premium Workspaces
         </span>
         <h1 className="mt-6 animate-fade-up text-4xl font-bold leading-tight sm:text-6xl">
-          Try a BGrowth Workspace,{" "}
+          Experience a{" "}
           <span className="bg-gradient-to-r from-primary-200 to-primary bg-clip-text text-transparent">
-            free
+            BGrowth Workspace
           </span>
         </h1>
         <p className="mx-auto mt-6 max-w-xl animate-fade-up text-lg text-white/70 [animation-delay:100ms]">
-          Pick one premium Business System, activate it in seconds, and see exactly how BGrowth helps
-          you get organized, look professional, and grow with confidence.
+          Purpose-built Business Systems designed for real business processes — pick one, activate it in
+          seconds, and see exactly how BGrowth helps you get organized, look professional, and grow with
+          confidence.
+        </p>
+        {/*
+          Trial length is per-Workspace data (src/lib/trial.ts), not a
+          platform-wide constant, and this hero isn't scoped to any one
+          product — so the trial mention here stays duration-agnostic
+          rather than risking a wrong/inconsistent day count across
+          Workspaces. Each Workspace's own Product Page states its actual
+          trial length via formatTrialSentence.
+        */}
+        <p className="mx-auto mt-4 max-w-xl animate-fade-up text-sm font-medium text-primary-200 [animation-delay:150ms]">
+          Try one Workspace free. No card required.
         </p>
         <div className="mt-10 flex animate-fade-up flex-col items-center justify-center gap-4 [animation-delay:200ms] sm:flex-row">
-          <Link to="/sign-up">
-            <Button size="lg">Create Free Account</Button>
+          <Link to="/browse">
+            <Button size="lg">Explore Workspaces</Button>
           </Link>
           <Link
             to="/sign-in"

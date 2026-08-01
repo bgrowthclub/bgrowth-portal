@@ -40,8 +40,8 @@ select portal.publish_product(
     },
     "footer": {
       "proTip": "Complete all sections for the most accurate recordkeeping and a smooth, professional experience.",
-      "helpText": "Visit bgrowthclub.com for resources and support.",
-      "helpUrl": "https://bgrowthclub.com"
+      "helpText": "Visit portal.bgrowth.app for resources and support.",
+      "helpUrl": "https://portal.bgrowth.app"
     },
     "sections": [
       {
@@ -232,8 +232,8 @@ select portal.publish_product(
     },
     "footer": {
       "proTip": "Photograph every room before and after — it settles deposit disputes in seconds.",
-      "helpText": "Visit bgrowthclub.com for resources and support.",
-      "helpUrl": "https://bgrowthclub.com"
+      "helpText": "Visit portal.bgrowth.app for resources and support.",
+      "helpUrl": "https://portal.bgrowth.app"
     },
     "sections": [
       {

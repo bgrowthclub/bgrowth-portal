@@ -84,7 +84,7 @@ heading** field separately (the subject is not part of the pasted body).
 
 Placeholder replacement, done once per file:
 
-- [ ] `YOUR_PORTAL_DOMAIN` → the real production Portal domain (e.g. `app.bgrowthclub.com`, no `https://` prefix — it's already embedded in each `https://YOUR_PORTAL_DOMAIN/...` URL). Used for the header logo image and the Privacy/Terms footer links. Email clients need an absolute URL — a relative `/logo.png` won't resolve from an inbox.
+- [ ] `YOUR_PORTAL_DOMAIN` → the real production Portal domain (e.g. `portal.bgrowth.app`, no `https://` prefix — it's already embedded in each `https://YOUR_PORTAL_DOMAIN/...` URL). Used for the header logo image and the Privacy/Terms footer links. Email clients need an absolute URL — a relative `/logo.png` won't resolve from an inbox.
 - [ ] `YOUR_SUPPORT_EMAIL` → the real, monitored support inbox (should match `SUPPORT_EMAIL` from step 1). Used for the footer "Support" `mailto:` link.
 
 > Magic Link, Invite User, Change Email Address, and Reauthentication are

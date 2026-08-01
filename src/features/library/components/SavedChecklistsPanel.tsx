@@ -51,7 +51,7 @@ export function SavedChecklistsPanel({ workspace, userId, instances }: SavedChec
         </h3>
         <Button size="sm" onClick={() => setIsNaming(true)}>
           <Plus className="h-4 w-4" />
-          New Checklist
+          New Fill
         </Button>
       </div>
 
@@ -85,7 +85,7 @@ export function SavedChecklistsPanel({ workspace, userId, instances }: SavedChec
           </div>
           <Button size="sm" onClick={() => setIsNaming(true)}>
             <Plus className="h-4 w-4" />
-            New Checklist
+            New Fill
           </Button>
         </div>
       )}
