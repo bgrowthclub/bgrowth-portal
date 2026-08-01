@@ -32,7 +32,7 @@ export interface EmailLayoutInput {
  */
 export function renderEmailLayout({ preheader, heading, bodyHtml, cta }: EmailLayoutInput): string {
   const ctaHtml = cta
-    ? `<div style="margin-top:4px;"><a href="${cta.url}" style="display:inline-block; background:#1061EC; color:#ffffff; font-weight:600; font-size:14px; text-decoration:none; padding:12px 22px; border-radius:8px;">${cta.label}</a></div>`
+    ? `<div style="margin-top:6px;"><a href="${cta.url}" style="display:inline-block; background:#1061EC; color:#ffffff; font-weight:600; font-size:15px; text-decoration:none; padding:14px 28px; border-radius:8px;">${cta.label}</a></div>`
     : "";
 
   const footerLinks = [
@@ -67,11 +67,12 @@ export function renderEmailLayout({ preheader, heading, bodyHtml, cta }: EmailLa
         <tr>
           <td class="bg-email-header" style="background:#0B1C3B; padding:20px 28px;">
             <span style="color:#ffffff; font-size:15px; font-weight:700; letter-spacing:0.02em;">BGrowth</span>
+            <div style="margin-top:3px; font-size:11px; font-weight:500; color:rgba(255,255,255,0.55); letter-spacing:0.02em;">Grow Anywhere. Win Everywhere.</div>
           </td>
         </tr>
         <tr>
           <td class="bg-email-content" style="padding:28px;">
-            <h1 style="margin:0 0 8px; font-size:20px; font-weight:700; color:#0B1C3B; line-height:1.3;">${heading}</h1>
+            <h1 style="margin:0 0 12px; font-size:20px; font-weight:700; color:#0B1C3B; line-height:1.3;">${heading}</h1>
             ${bodyHtml}
             ${ctaHtml}
           </td>
@@ -79,7 +80,8 @@ export function renderEmailLayout({ preheader, heading, bodyHtml, cta }: EmailLa
         <tr>
           <td class="bg-email-footer" style="padding:18px 28px; border-top:1px solid #eef0f3; text-align:center;">
             ${footerLinks ? `<p style="margin:0 0 6px; font-size:12px; color:#94a3b8;">${footerLinks}</p>` : ""}
-            <p style="margin:0; font-size:12px; color:#94a3b8;">BGrowth Club · bgrowthclub.com</p>
+            <p style="margin:0 0 4px; font-size:12px; color:#94a3b8;">BGrowth Club · bgrowthclub.com</p>
+            <p style="margin:0; font-size:11px; color:#b3bac4;">© 2026 BGrowth. All rights reserved.</p>
           </td>
         </tr>
       </table>

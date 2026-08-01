@@ -32,14 +32,14 @@ export function buildPurchaseConfirmedEmail({
   const workspaceUrl = PORTAL_URL ? `${PORTAL_URL}/workspace/${productSlug}` : undefined;
 
   const bodyHtml = `
-    <p style="margin:0 0 6px; font-size:14px; line-height:1.6; color:#475569;">${greeting}</p>
-    <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#475569;">
-      <strong>${productName}</strong> is unlocked and ready. Everything you need to get started is waiting for you inside your Workspace.
+    <p style="margin:0 0 8px; font-size:14px; line-height:1.6; color:#475569;">${greeting}</p>
+    <p style="margin:0 0 24px; font-size:14px; line-height:1.6; color:#475569;">
+      <strong>${productName}</strong> is unlocked and ready in your Workspace.
     </p>
     ${
       welcomePdfUrl
-        ? `<p style="margin:16px 0 0; font-size:13px; line-height:1.6; color:#94a3b8;">
-             Want a quick overview first? <a href="${welcomePdfUrl}" style="color:#1061EC; font-weight:600; text-decoration:underline;">Read the Quick Start Guide</a>.
+        ? `<p style="margin:20px 0 0; font-size:13px; line-height:1.6; color:#94a3b8;">
+             New here? <a href="${welcomePdfUrl}" style="color:#1061EC; font-weight:600; text-decoration:underline;">Read the Quick Start Guide</a> first.
            </p>`
         : ""
     }
