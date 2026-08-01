@@ -12,18 +12,26 @@ export function Navbar() {
       <div className="mx-auto flex h-18 max-w-6xl items-center justify-between px-6 py-4">
         <Logo />
         <nav className="hidden items-center gap-8 text-sm font-medium text-navy-600 dark:text-white/70 md:flex">
-          <a href="#benefits" className="transition-colors hover:text-primary">
+          {/*
+            Benefits/How It Works/FAQ are Home-page sections, not routes —
+            "/#id" navigates to Home (from anywhere) and sets the hash;
+            HomePage's useScrollToHash then scrolls to it, whether that's a
+            fresh navigation or an in-place hash change while already on Home.
+            Workspaces is a real route (the existing public Browse
+            experience) and was never a Home-only anchor, so it's a plain Link.
+          */}
+          <Link to="/#benefits" className="transition-colors hover:text-primary">
             Benefits
-          </a>
-          <a href="#how-it-works" className="transition-colors hover:text-primary">
+          </Link>
+          <Link to="/#how-it-works" className="transition-colors hover:text-primary">
             How It Works
-          </a>
-          <a href="#workspaces" className="transition-colors hover:text-primary">
+          </Link>
+          <Link to="/browse" className="transition-colors hover:text-primary">
             Workspaces
-          </a>
-          <a href="#faq" className="transition-colors hover:text-primary">
+          </Link>
+          <Link to="/#faq" className="transition-colors hover:text-primary">
             FAQ
-          </a>
+          </Link>
         </nav>
         <div className="flex items-center gap-3">
           <ThemeToggle />
