@@ -6,7 +6,7 @@ import type { WorkspaceAccessState } from "@/types/workspace";
 import { Button } from "@/components/ui/Button";
 import { BuyNowButton } from "@/components/ui/BuyNowButton";
 import { formatTrialSentence } from "@/lib/trial";
-import { formatPrice, formatPricingSummary } from "@/lib/pricing";
+import { formatPrice, formatPricingSummaryParts } from "@/lib/pricing";
 import { setPendingAuthRedirect } from "@/lib/pendingRedirect";
 
 interface ProductPricingSectionProps {
@@ -29,11 +29,13 @@ interface ProductPricingSectionProps {
  * stays reachable at every scroll position, so this never hides the
  * ability to buy/trial, only the detail until the visitor asks for it.
  *
- * The collapsed header's summary text (Free / $XX One-time / X-day Free
- * Trial • $XX One-time) is entirely derived from this product's own price/
- * trial fields via formatPricingSummary — never a hardcoded amount or
+ * The collapsed header's summary (Free / $XX One-time / X-day Free Trial •
+ * $XX One-time) is entirely derived from this product's own price/trial
+ * fields via formatPricingSummaryParts — never a hardcoded amount or
  * duration, so a future price or trial-length change in Studio is reflected
- * here automatically.
+ * here automatically. The trial portion renders in BGrowth blue
+ * (text-primary) and the price portion in strong navy so the two are
+ * visually distinguishable at a glance without expanding.
  *
  * Same CTA branching this page has always used (signed-in vs. signed-out
  * pendingRedirect, so a fresh signup/sign-in lands back on the intended
@@ -52,12 +54,15 @@ export function ProductPricingSection({ product, isAuthenticated, accessState, h
       ? formatTrialSentence(product.trial_duration, product.trial_unit)
       : null;
   const priceLabel = product.is_free ? "Free" : formatPrice(product.price_cents, product.currency);
-  // Collapsed-header teaser — Free / $XX One-time / X-day Free Trial • $XX
-  // One-time — driven entirely by this product's own configuration (see
-  // formatPricingSummary), never the viewing member's personal state
+  // Collapsed-header teaser — trialLabel (e.g. "14-day Free Trial", BGrowth
+  // blue) and priceLabel (e.g. "$59.00 One-time", or "Free" — strong navy)
+  // rendered as separate colored spans instead of one joined string, so the
+  // color split never depends on parsing a display string. Both are driven
+  // entirely by this product's own configuration (see
+  // formatPricingSummaryParts), never the viewing member's personal state
   // (trial-already-used, expired, etc.); those nuances only appear once
   // expanded, same as before.
-  const collapsedSummary = formatPricingSummary(product);
+  const { trialLabel: collapsedTrialLabel, priceLabel: collapsedPriceLabel } = formatPricingSummaryParts(product);
 
   const isOwned = accessState === "trial" || accessState === "purchased";
   const isExpired = accessState === "expired";
@@ -100,12 +105,20 @@ export function ProductPricingSection({ product, isAuthenticated, accessState, h
           */}
           <div className="flex min-w-0 flex-col">
             <div className="text-base font-bold text-navy-900 dark:text-white">Pricing &amp; Trial</div>
-            {collapsedSummary && (
-              <div className="mt-1 text-[15px] font-medium text-navy-500 dark:text-white/60">{collapsedSummary}</div>
+            {collapsedPriceLabel && (
+              <div className="mt-1 text-[15px] font-medium">
+                {collapsedTrialLabel && (
+                  <>
+                    <span className="text-primary">{collapsedTrialLabel}</span>
+                    <span className="text-navy-300 dark:text-white/30"> • </span>
+                  </>
+                )}
+                <span className="text-navy-900 dark:text-white">{collapsedPriceLabel}</span>
+              </div>
             )}
           </div>
           <ChevronDown
-            className={`h-5 w-5 shrink-0 text-navy-400 transition-transform duration-300 dark:text-white/50 ${
+            className={`h-5 w-5 shrink-0 text-primary transition-transform duration-300 ${
               isExpanded ? "rotate-180" : ""
             }`}
             aria-hidden="true"

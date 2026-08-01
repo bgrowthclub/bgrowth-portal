@@ -19,29 +19,39 @@ export function formatPrice(priceCents: number | null, currency: string): string
   return `${formatCurrencyAmount(priceCents, currency)} · one-time`;
 }
 
+export interface PricingSummaryParts {
+  /** e.g. "14-day Free Trial" — null when this product isn't trial-eligible, has no configured duration, or is free (a free product has no separate trial to advertise). */
+  trialLabel: string | null;
+  /** "Free", or e.g. "$59.00 One-time" — null only when a non-free Workspace has no price configured yet. */
+  priceLabel: string | null;
+}
+
 /**
  * The compact "collapsed accordion" summary for ProductPricingSection —
- * Free / $XX One-time / X-day Free Trial • $XX One-time — derived entirely
- * from this product's own configuration (is_free, price_cents, currency,
- * is_trial_eligible, trial_duration, trial_unit), the same fields every
- * other pricing/trial surface on this page reads. Nothing here is a
- * hardcoded price or duration — Studio changing any of these fields changes
- * this summary automatically, with no code change, the same guarantee
- * formatPrice/formatTrialLength already give their own callers.
+ * split into parts (rather than one joined string) so the caller can give
+ * the trial portion and the price portion distinct colors without ever
+ * parsing/splitting a display string. Derived entirely from this product's
+ * own configuration (is_free, price_cents, currency, is_trial_eligible,
+ * trial_duration, trial_unit), the same fields every other pricing/trial
+ * surface on this page reads. Nothing here is a hardcoded price or
+ * duration — Studio changing any of these fields changes this summary
+ * automatically, with no code change, the same guarantee formatPrice/
+ * formatTrialLength already give their own callers.
  *
- * Null only when a non-free Workspace has no price yet (Studio hasn't
- * configured pricing) — the caller falls back to the plain header in that
- * case rather than show a broken summary.
+ * priceLabel is null only when a non-free Workspace has no price yet
+ * (Studio hasn't configured pricing) — the caller falls back to the plain
+ * header in that case rather than show a broken summary.
  */
-export function formatPricingSummary(
+export function formatPricingSummaryParts(
   product: Pick<ProductRow, "is_free" | "price_cents" | "currency" | "is_trial_eligible" | "trial_duration" | "trial_unit">,
-): string | null {
-  if (product.is_free) return "Free";
-  if (product.price_cents == null) return null;
+): PricingSummaryParts {
+  if (product.is_free) return { trialLabel: null, priceLabel: "Free" };
+  if (product.price_cents == null) return { trialLabel: null, priceLabel: null };
 
   const priceLabel = `${formatCurrencyAmount(product.price_cents, product.currency)} One-time`;
-  if (product.is_trial_eligible && product.trial_duration != null) {
-    return `${formatTrialLength(product.trial_duration, product.trial_unit)} Free Trial • ${priceLabel}`;
-  }
-  return priceLabel;
+  const trialLabel =
+    product.is_trial_eligible && product.trial_duration != null
+      ? `${formatTrialLength(product.trial_duration, product.trial_unit)} Free Trial`
+      : null;
+  return { trialLabel, priceLabel };
 }
