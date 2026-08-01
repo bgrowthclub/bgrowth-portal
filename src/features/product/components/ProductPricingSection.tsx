@@ -91,10 +91,10 @@ export function ProductPricingSection({ product, isAuthenticated, accessState, h
           aria-controls="product-pricing-panel"
           className="flex w-full items-center justify-between gap-4 py-4 text-left"
         >
-          <span className="flex items-baseline gap-2">
-            <span className="text-sm font-semibold text-navy-900 dark:text-white">Pricing &amp; Trial</span>
+          <span className="flex flex-col">
+            <span className="text-base font-bold text-navy-900 dark:text-white">Pricing &amp; Trial</span>
             {collapsedSummary && (
-              <span className="text-sm text-navy-400 dark:text-white/50">{collapsedSummary}</span>
+              <span className="mt-0.5 text-[15px] font-medium text-navy-500 dark:text-white/60">{collapsedSummary}</span>
             )}
           </span>
           <ChevronDown
