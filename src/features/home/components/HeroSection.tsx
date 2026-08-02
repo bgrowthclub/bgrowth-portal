@@ -19,9 +19,7 @@ export function HeroSection() {
           </span>
         </h1>
         <p className="mx-auto mt-6 max-w-xl animate-fade-up text-lg text-white/70 [animation-delay:100ms]">
-          Purpose-built Business Systems designed for real business processes — pick one, activate it in
-          seconds, and see exactly how BGrowth helps you get organized, look professional, and grow with
-          confidence.
+          Ready-to-use Business Systems to help you stay organized, work smarter, and grow your business.
         </p>
         {/*
           Trial length is per-Workspace data (src/lib/trial.ts), not a
