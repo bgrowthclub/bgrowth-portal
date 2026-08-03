@@ -6,10 +6,11 @@ import { useAsync } from "@/hooks/useAsync";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { productService } from "@/services/productService";
 import { licenseService } from "@/services/licenseService";
+import { accessGrantService } from "@/services/accessGrantService";
 import { workspaceInstanceService } from "@/services/workspaceInstanceService";
 import { catalogService } from "@/services/catalogService";
 import { reviewService } from "@/services/reviewService";
-import { attachAccessState } from "@/lib/workspaceAccess";
+import { attachAccessState, isGrantActive } from "@/lib/workspaceAccess";
 import { getLibraryViewPreference, setLibraryViewPreference, type LibraryViewMode } from "@/lib/libraryViewPreference";
 import { getWorkspaceBadges, isRecentlyUpdated } from "@/lib/workspaceBadges";
 import { rankRecommendations } from "@/lib/recommendations";
@@ -59,6 +60,19 @@ export function MyLibraryPage() {
     error: licensesError,
     refetch: refetchLicenses,
   } = useAsync(() => (user ? licenseService.fetchForUser(user.id) : Promise.resolve([])), [user?.id]);
+  // Access Grants — completely separate from licenses above, resolved
+  // together only in attachAccessState. Deliberately NOT folded into
+  // licensedProductIds below: a grant on a currently-published Workspace
+  // already flows through fetchForLibrary's unconditional "every published
+  // product" fetch (see attachAccessState's own doc comment); extending
+  // archived-product visibility for a grant holder is out of scope for
+  // this phase.
+  const {
+    data: grants,
+    isLoading: isLoadingGrants,
+    error: grantsError,
+    refetch: refetchGrants,
+  } = useAsync(() => (user ? accessGrantService.fetchForUser(user.id) : Promise.resolve([])), [user?.id]);
   // Depends on `licenses` so an archived-but-owned Workspace still resolves:
   // fetchForLibrary() needs the member's licensed product ids to include a
   // non-published row (see productService.fetchForLibrary and
@@ -129,15 +143,22 @@ export function MyLibraryPage() {
     scrollToAllWorkspaces();
   }
 
-  const isLoading = isLoadingProducts || isLoadingLicenses;
-  const error = productsError ?? licensesError;
-  const hasAnyLicense = (licenses?.length ?? 0) > 0;
+  const isLoading = isLoadingProducts || isLoadingLicenses || isLoadingGrants;
+  const error = productsError ?? licensesError ?? grantsError;
+  // A member with only an Access Grant and zero licenses still has real
+  // access — must not fall into the "Choose Your Free Trial" welcome state
+  // below as if they own nothing yet.
+  const hasAnyAccess = (licenses?.length ?? 0) > 0 || (grants ?? []).some(isGrantActive);
   // Only Workspaces the member actually owns — locked (never activated/bought)
   // Workspaces live in Browse Workspaces instead. A Workspace stays here even
   // after its trial expires (see LibraryWorkspaceCard) — it never disappears,
-  // it just switches to a Buy Now prompt.
-  const workspaces = products && licenses
-    ? attachAccessState(products, licenses).filter((w) => w.accessState !== "locked")
+  // it just switches to a Buy Now prompt. An active "all" grant surfaces
+  // every currently-published Workspace here too, with zero change to the
+  // fetchForLibrary query above — that query already fetches every
+  // published product unconditionally; attachAccessState is what decides
+  // "locked" vs. not.
+  const workspaces = products && licenses && grants
+    ? attachAccessState(products, licenses, grants).filter((w) => w.accessState !== "locked")
     : null;
   const ownedProductIds = useMemo(() => (workspaces ?? []).map((w) => w.id), [workspaces]);
 
@@ -420,10 +441,11 @@ export function MyLibraryPage() {
   function handleRetry() {
     refetchProducts();
     refetchLicenses();
+    refetchGrants();
     refetchInstances();
   }
 
-  if (!isLoading && !error && !hasAnyLicense) {
+  if (!isLoading && !error && !hasAnyAccess) {
     // Before a trial is chosen, Library is nothing but this welcome state —
     // not a banner sitting above an already-empty grid.
     return (
@@ -583,7 +605,8 @@ export function MyLibraryPage() {
       {!isLoading && !error && pagedWorkspaces && pagedWorkspaces.length > 0 && user && viewMode === "grid" && (
         <div className="mt-8 flex flex-col gap-8">
           {pagedWorkspaces.map((workspace) => {
-            const canOpen = workspace.accessState === "trial" || workspace.accessState === "purchased";
+            const canOpen =
+              workspace.accessState === "trial" || workspace.accessState === "purchased" || workspace.accessState === "unlocked";
             return (
               // 40/60 on desktop, 45/55 on tablet, stacked (card first) on
               // mobile. When the Workspace can't be opened (expired trial,

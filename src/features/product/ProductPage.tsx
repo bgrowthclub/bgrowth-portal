@@ -4,7 +4,8 @@ import { useAsync } from "@/hooks/useAsync";
 import { useDocumentHead } from "@/hooks/useDocumentHead";
 import { productService } from "@/services/productService";
 import { licenseService } from "@/services/licenseService";
-import { deriveAccessState } from "@/lib/workspaceAccess";
+import { accessGrantService } from "@/services/accessGrantService";
+import { deriveAccessState, isGrantActive } from "@/lib/workspaceAccess";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { FetchErrorState } from "@/components/ui/FetchErrorState";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
@@ -51,6 +52,14 @@ export function ProductPage() {
     error: licensesError,
     refetch: refetchLicenses,
   } = useAsync(() => (user ? licenseService.fetchForUser(user.id) : Promise.resolve([])), [user?.id]);
+  // Access Grants — completely separate from the purchase/trial licenses
+  // above, resolved together only in deriveAccessState below.
+  const {
+    data: grants,
+    isLoading: isLoadingGrants,
+    error: grantsError,
+    refetch: refetchGrants,
+  } = useAsync(() => (user ? accessGrantService.fetchForUser(user.id) : Promise.resolve([])), [user?.id]);
   // Platform-wide (not scoped to this product) — gates whether the pricing
   // section still offers Start Free Trial at all, distinct from accessState
   // below (which is scoped to this one product).
@@ -64,8 +73,8 @@ export function ProductPage() {
     product?.short_description,
   );
 
-  const isLoading = isLoadingAuth || isLoadingProduct || (Boolean(user) && isLoadingLicenses);
-  const fetchError = productError ?? (user ? licensesError : null);
+  const isLoading = isLoadingAuth || isLoadingProduct || (Boolean(user) && (isLoadingLicenses || isLoadingGrants));
+  const fetchError = productError ?? (user ? (licensesError ?? grantsError) : null);
 
   if (isLoading) return <FullPageSpinner />;
 
@@ -77,6 +86,7 @@ export function ProductPage() {
           onRetry={() => {
             refetchProduct();
             refetchLicenses();
+            refetchGrants();
           }}
         />
       </div>
@@ -97,7 +107,8 @@ export function ProductPage() {
   // "locked" (never engaged) is also the correct state for a signed-out
   // visitor, since there's no license to look up without a session.
   const license = user && licenses ? licenses.find((item) => item.product_id === product.id) ?? null : null;
-  const accessState = deriveAccessState(license);
+  const hasActiveGrant = user && grants ? grants.some((grant) => isGrantActive(grant) && (grant.scope === "all" || grant.product_id === product.id)) : false;
+  const accessState = deriveAccessState(license, hasActiveGrant);
 
   return (
     <div>

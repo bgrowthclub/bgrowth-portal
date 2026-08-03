@@ -54,7 +54,7 @@ export function ProductPricingSection({ product, isAuthenticated, accessState, h
       : null;
   const priceLabel = product.is_free ? "Free" : formatPrice(product.price_cents, product.currency);
 
-  const isOwned = accessState === "trial" || accessState === "purchased";
+  const isOwned = accessState === "trial" || accessState === "purchased" || accessState === "unlocked";
   const isExpired = accessState === "expired";
   // Signed out: can't know platform-wide trial history without a session,
   // so Start Free Trial always renders normally and sends them to sign up

@@ -8,7 +8,10 @@ function formatDate(value: string | null): string {
 }
 
 export function LicenseRowItem({ license }: { license: LicenseWithProduct }) {
-  const accessState = deriveAccessState(license);
+  // Profile shows actual license rows only — Access Grants (a separate,
+  // license-less form of access) aren't surfaced here in Phase 1, so this
+  // is never the source of an "unlocked" state.
+  const accessState = deriveAccessState(license, false);
 
   return (
     <div className="flex items-center justify-between gap-4 border-b border-navy-100/60 py-4 last:border-0 dark:border-white/10">

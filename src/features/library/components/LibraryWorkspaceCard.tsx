@@ -49,7 +49,8 @@ export function LibraryWorkspaceCard({
   badges = [],
   review,
 }: LibraryWorkspaceCardProps) {
-  const canOpen = workspace.accessState === "trial" || workspace.accessState === "purchased";
+  const canOpen =
+    workspace.accessState === "trial" || workspace.accessState === "purchased" || workspace.accessState === "unlocked";
   const isExpired = workspace.accessState === "expired";
   const isPurchased = workspace.accessState === "purchased";
   const expiry = workspace.accessState === "trial" ? formatExpiry(workspace.license?.expires_at ?? null) : null;

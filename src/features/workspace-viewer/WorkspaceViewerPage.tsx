@@ -4,8 +4,9 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
 import { productService } from "@/services/productService";
 import { licenseService } from "@/services/licenseService";
+import { accessGrantService } from "@/services/accessGrantService";
 import { workspaceInstanceService } from "@/services/workspaceInstanceService";
-import { deriveAccessState } from "@/lib/workspaceAccess";
+import { deriveAccessState, isGrantActive } from "@/lib/workspaceAccess";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { FetchErrorState } from "@/components/ui/FetchErrorState";
 import { WorkspaceViewerLayout } from "./components/WorkspaceViewerLayout";
@@ -30,6 +31,12 @@ export function WorkspaceViewerPage() {
     error: licensesError,
     refetch: refetchLicenses,
   } = useAsync(() => (user ? licenseService.fetchForUser(user.id) : Promise.resolve([])), [user?.id]);
+  const {
+    data: grants,
+    isLoading: isLoadingGrants,
+    error: grantsError,
+    refetch: refetchGrants,
+  } = useAsync(() => (user ? accessGrantService.fetchForUser(user.id) : Promise.resolve([])), [user?.id]);
   // Only relevant when opening a saved checklist instance (?instance=<id>) —
   // resolves to null otherwise, so the ordinary "Open Workspace" path
   // (no instance param) is completely unaffected by any of this.
@@ -45,12 +52,16 @@ export function WorkspaceViewerPage() {
 
   // Computed ahead of every early return below (Rules of Hooks — the
   // recordOpened effect right after this needs them unconditionally).
-  // Safe when product/licenses are still null/loading: license resolves to
-  // null, accessState to "locked", hasAccess to false, so the effect below
-  // simply doesn't fire until the real values are in.
+  // Safe when product/licenses/grants are still null/loading: license
+  // resolves to null, hasActiveGrant to false, accessState to "locked",
+  // hasAccess to false, so the effect below simply doesn't fire until the
+  // real values are in.
   const license = licenses?.find((item) => item.product_id === product?.id) ?? null;
-  const accessState = deriveAccessState(license);
-  const hasAccess = accessState === "trial" || accessState === "purchased";
+  const hasActiveGrant = (grants ?? []).some(
+    (grant) => isGrantActive(grant) && (grant.scope === "all" || grant.product_id === product?.id),
+  );
+  const accessState = deriveAccessState(license, hasActiveGrant);
+  const hasAccess = accessState === "trial" || accessState === "purchased" || accessState === "unlocked";
 
   // Fires once per successful open (not once ever) — every time a member
   // actually reaches this Workspace, last_opened_at updates, powering My
@@ -66,9 +77,9 @@ export function WorkspaceViewerPage() {
     }
   }, [hasAccess, license]);
 
-  if (isLoadingProduct || isLoadingLicenses || isLoadingInstance) return <FullPageSpinner />;
+  if (isLoadingProduct || isLoadingLicenses || isLoadingGrants || isLoadingInstance) return <FullPageSpinner />;
 
-  const fetchError = productError ?? licensesError ?? instanceError;
+  const fetchError = productError ?? licensesError ?? grantsError ?? instanceError;
   if (fetchError) {
     return (
       <div className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center gap-6 px-6 text-center">
@@ -77,6 +88,7 @@ export function WorkspaceViewerPage() {
           onRetry={() => {
             refetchProduct();
             refetchLicenses();
+            refetchGrants();
             refetchInstance();
           }}
         />

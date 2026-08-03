@@ -44,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // (src/lib/workspaceAccess.ts) — a purchased/lifetime license can never
     // read as "expired" here either, matching everywhere else this
     // distinction matters.
-    const isExpired = deriveAccessState(license) === "expired";
+    const isExpired = deriveAccessState(license, false) === "expired";
 
     if (!license || !isExpired || license.review_requested_at) {
       return res.status(200).json({ ok: true, sent: false });

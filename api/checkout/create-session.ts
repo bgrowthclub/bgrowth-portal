@@ -103,7 +103,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     console.log("[DIAGNOSTIC create-session] license lookup succeeded:", { found: Boolean(existingLicense) });
 
-    const existingAccessState = deriveAccessState(existingLicense);
+    // Access Grants are deliberately not wired into checkout — this stays a
+    // pure license-based ownership check, unchanged from before Access
+    // Grants existed (see the approved Access Grants plan: "do not modify
+    // Stripe checkout logic").
+    const existingAccessState = deriveAccessState(existingLicense, false);
     console.log("[DIAGNOSTIC create-session] derived access state:", existingAccessState);
     if (existingAccessState === "trial" || existingAccessState === "purchased") {
       console.log("[DIAGNOSTIC create-session] already owned — redirecting to Workspace instead of Stripe");

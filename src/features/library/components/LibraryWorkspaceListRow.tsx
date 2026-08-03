@@ -30,7 +30,8 @@ export function LibraryWorkspaceListRow({
   isTogglingFavorite,
   badges = [],
 }: LibraryWorkspaceListRowProps) {
-  const canOpen = workspace.accessState === "trial" || workspace.accessState === "purchased";
+  const canOpen =
+    workspace.accessState === "trial" || workspace.accessState === "purchased" || workspace.accessState === "unlocked";
 
   return (
     <div className="card flex items-center gap-4 p-4">

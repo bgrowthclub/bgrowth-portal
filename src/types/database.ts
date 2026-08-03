@@ -227,6 +227,31 @@ export type UserProfileRow = {
   created_at: string;
 };
 
+export type AccessGrantScope = "specific" | "all";
+
+/**
+ * Manual, admin-issued Workspace access — completely separate from
+ * portal.licenses (Stripe purchases/trials). See
+ * portal.has_workspace_access() (supabase/migrations/0021_access_grants.sql)
+ * for the database-level rule this mirrors: a license OR an active grant
+ * grants access, never a fake license row.
+ */
+export type AccessGrantRow = {
+  id: string;
+  user_id: string;
+  scope: AccessGrantScope;
+  /** Required when scope is "specific"; null when scope is "all" (enforced by a DB check constraint). */
+  product_id: string | null;
+  /** null = lifetime access. In the future = temporary, checked against now() at read time — same pattern as LicenseRow.expires_at. */
+  expires_at: string | null;
+  note: string | null;
+  /** Free text (e.g. an admin's email/name) — Phase 1 grants are administered directly in Supabase, not by an authenticated portal user. */
+  granted_by: string | null;
+  created_at: string;
+  /** Set once, never cleared — a grant is revoked, never deleted. */
+  revoked_at: string | null;
+};
+
 /** Whether a review was submitted after a Trial or after a purchase — kept for future analytics, not read/branched on anywhere today. */
 export type ReviewCreatedFrom = "trial" | "purchase";
 
@@ -441,6 +466,25 @@ export interface Database {
           },
           {
             foreignKeyName: "licenses_product_id_fkey";
+            columns: ["product_id"];
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      access_grants: {
+        Row: AccessGrantRow;
+        Insert: Partial<AccessGrantRow> & Pick<AccessGrantRow, "user_id" | "scope">;
+        Update: Partial<AccessGrantRow>;
+        Relationships: [
+          {
+            foreignKeyName: "access_grants_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "access_grants_product_id_fkey";
             columns: ["product_id"];
             referencedRelation: "products";
             referencedColumns: ["id"];
