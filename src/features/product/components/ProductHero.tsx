@@ -27,7 +27,7 @@ export function ProductHero({ product }: ProductHeroProps) {
       <div className="relative mx-auto grid max-w-6xl gap-10 px-6 py-20 lg:grid-cols-2 lg:items-center">
         <div>
           <span className="eyebrow inline-block rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary-200">
-            Business System
+            Digital System
           </span>
           <h1 className="mt-5 text-4xl font-bold leading-tight sm:text-5xl">{product.name}</h1>
           <p className="mt-5 max-w-lg text-lg text-white/70">{product.short_description}</p>

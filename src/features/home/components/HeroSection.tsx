@@ -19,7 +19,8 @@ export function HeroSection() {
           </span>
         </h1>
         <p className="mx-auto mt-6 max-w-xl animate-fade-up text-lg text-white/70 [animation-delay:100ms]">
-          Ready-to-use Business Systems to help you stay organized, work smarter, and grow your business.
+          Ready-to-use Digital Systems designed to help you stay organized, work smarter, and make
+          progress toward your goals.
         </p>
         {/*
           Trial length is per-Workspace data (src/lib/trial.ts), not a
