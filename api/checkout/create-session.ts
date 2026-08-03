@@ -171,7 +171,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               price_data: {
                 currency: product.currency,
                 unit_amount: product.price_cents,
-                product_data: { name: product.name },
+                product_data: {
+                  name: product.name,
+                  ...(product.short_description ? { description: product.short_description } : {}),
+                  ...(product.cover_image_url ? { images: [product.cover_image_url] } : {}),
+                },
               },
               quantity: 1,
             },
