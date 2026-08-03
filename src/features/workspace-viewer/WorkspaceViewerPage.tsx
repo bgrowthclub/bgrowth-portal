@@ -11,6 +11,7 @@ import { FullPageSpinner } from "@/components/ui/Spinner";
 import { FetchErrorState } from "@/components/ui/FetchErrorState";
 import { WorkspaceViewerLayout } from "./components/WorkspaceViewerLayout";
 import { WorkspaceRenderer } from "./components/WorkspaceRenderer";
+import { NewFillButton } from "./components/NewFillButton";
 import type { WorkspaceData } from "@/types/workspaceContent";
 
 export function WorkspaceViewerPage() {
@@ -118,7 +119,12 @@ export function WorkspaceViewerPage() {
   }
 
   return (
-    <WorkspaceViewerLayout product={product}>
+    <WorkspaceViewerLayout
+      product={product}
+      headerActions={
+        hasAccess && user ? <NewFillButton userId={user.id} productId={product.id} workspaceSlug={product.slug} /> : undefined
+      }
+    >
       {product.content ? (
         <WorkspaceRenderer
           content={product.content}

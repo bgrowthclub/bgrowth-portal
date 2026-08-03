@@ -21,6 +21,8 @@ const RESERVED_ACTIONS = ["Rename", "Duplicate", "Archive", "Delete"] as const;
 interface SavedChecklistCardProps {
   instance: WorkspaceInstanceRow;
   workspaceSlug: string;
+  /** Shown above the document title so a flattened, multi-Workspace list (see MyDocumentsSection) still identifies which Workspace each document belongs to. */
+  workspaceName: string;
   /** Null when Studio hasn't published content for this Workspace yet — the progress bar is simply omitted then ("if available"). */
   content: WorkspaceContent | null;
 }
@@ -43,7 +45,7 @@ function formatUpdatedDate(value: string): string {
  * is also why it can't live inside the Link — a button nested inside an
  * anchor is invalid HTML.
  */
-export function SavedChecklistCard({ instance, workspaceSlug, content }: SavedChecklistCardProps) {
+export function SavedChecklistCard({ instance, workspaceSlug, workspaceName, content }: SavedChecklistCardProps) {
   const progress = useWorkspaceProgress(content ?? EMPTY_CONTENT, (instance.data as WorkspaceData) ?? {});
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -74,6 +76,7 @@ export function SavedChecklistCard({ instance, workspaceSlug, content }: SavedCh
 
       <div className="pointer-events-none relative z-[1] flex items-center gap-4 p-4">
         <div className="min-w-0 flex-1">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">{workspaceName}</span>
           <h4 className="truncate text-sm font-semibold text-navy-900 dark:text-white">{instance.label}</h4>
           {content && (
             <div className="mt-1.5 flex items-center gap-2">

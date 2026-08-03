@@ -12,8 +12,7 @@ import { catalogService } from "@/services/catalogService";
 import { reviewService } from "@/services/reviewService";
 import { attachAccessState, isGrantActive } from "@/lib/workspaceAccess";
 import { getLibraryViewPreference, setLibraryViewPreference, type LibraryViewMode } from "@/lib/libraryViewPreference";
-import { getWorkspaceBadges, isRecentlyUpdated } from "@/lib/workspaceBadges";
-import { rankRecommendations } from "@/lib/recommendations";
+import { getWorkspaceBadges } from "@/lib/workspaceBadges";
 import type { WorkspaceWithAccess } from "@/types/workspace";
 import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
@@ -22,7 +21,8 @@ import { LibraryWorkspaceCard } from "./components/LibraryWorkspaceCard";
 import { LibraryWorkspaceListRow } from "./components/LibraryWorkspaceListRow";
 import { LibraryDashboardSections } from "./components/LibraryDashboardSections";
 import { CategoryChips } from "./components/CategoryChips";
-import { SavedChecklistsPanel } from "./components/SavedChecklistsPanel";
+import { MyDocumentsSection } from "./components/MyDocumentsSection";
+import { ExploreWorkspacesSection } from "./components/ExploreWorkspacesSection";
 import {
   LibraryFilterBar,
   type LibraryAccessFilter,
@@ -31,25 +31,21 @@ import {
 } from "./components/LibraryFilterBar";
 
 const CONTINUE_WORKING_LIMIT = 5;
-const RECOMMENDED_CANDIDATE_POOL = 24;
-const RECOMMENDED_DISPLAY_LIMIT = 10;
 // Same cap Home's curated rails use (see catalogService.getCuratedRail's
 // default `limit`) — keeps every dashboard rail a "quick glance" strip
 // rather than an unbounded list, even for a member who owns hundreds of
 // Workspaces. Each capped rail gets a "View All" action once its full list
 // exceeds this.
 const RAIL_DISPLAY_LIMIT = 12;
-// "All Workspaces" renders incrementally rather than all at once — the
+// Explore More Workspaces is a small discovery nudge, not a second Browse —
+// kept noticeably smaller than the owned-item rails above.
+const EXPLORE_DISPLAY_LIMIT = 6;
+// "My Workspaces" renders incrementally rather than all at once — the
 // filtered/sorted list is already fully in memory (client-side filtering
 // was the point of that architecture), so this only bounds how much gets
 // mounted to the DOM at a time, via a plain "Load More" button matching
 // Browse's own keyset-pagination affordance (see MarketplacePage).
 const ALL_WORKSPACES_PAGE_SIZE = 24;
-
-/** Most-recent activity signal for a single owned Workspace — opened wins over merely purchased, matching "Recently Opened"'s own tie-break elsewhere on this page. */
-function lastActivityTime(workspace: WorkspaceWithAccess): number {
-  return new Date(workspace.license?.last_opened_at ?? workspace.license?.activated_at ?? 0).getTime();
-}
 
 export function MyLibraryPage() {
   const { user } = useAuth();
@@ -87,12 +83,12 @@ export function MyLibraryPage() {
     error: productsError,
     refetch: refetchProducts,
   } = useAsync(() => productService.fetchForLibrary(licensedProductIds), [licensedProductIds.join(",")]);
-  // Saved Checklists is an optional, secondary feature of My Library, not a
+  // Saved documents are an optional, secondary feature of My Library, not a
   // reason to block it — a failure here (e.g. a not-yet-applied migration)
   // must never stop a member from seeing/opening the Workspaces they own.
   // Deliberately excluded from `isLoading`/`error` below; on failure,
-  // `instances` just stays null and every card's "Saved Checklists" section
-  // renders as empty instead of the whole page failing.
+  // `instances` just stays null and My Documents renders as empty instead of
+  // the whole page failing.
   const { data: instances, refetch: refetchInstances } = useAsync(
     () => (user ? workspaceInstanceService.listForUser(user.id) : Promise.resolve([])),
     [user?.id],
@@ -132,16 +128,6 @@ export function MyLibraryPage() {
     setFavoritesOnly(true);
     scrollToAllWorkspaces();
   }
-  function handleViewAllRecentPurchases() {
-    setSort("recently_purchased");
-    scrollToAllWorkspaces();
-  }
-  function handleViewAllRecentlyUpdated() {
-    // No existing filter/sort corresponds to "recently updated" specifically
-    // — this just gets the member to the full, searchable list rather than
-    // applying a misleading filter.
-    scrollToAllWorkspaces();
-  }
 
   const isLoading = isLoadingProducts || isLoadingLicenses || isLoadingGrants;
   const error = productsError ?? licensesError ?? grantsError;
@@ -149,18 +135,40 @@ export function MyLibraryPage() {
   // access — must not fall into the "Choose Your Free Trial" welcome state
   // below as if they own nothing yet.
   const hasAnyAccess = (licenses?.length ?? 0) > 0 || (grants ?? []).some(isGrantActive);
-  // Only Workspaces the member actually owns — locked (never activated/bought)
-  // Workspaces live in Browse Workspaces instead. A Workspace stays here even
-  // after its trial expires (see LibraryWorkspaceCard) — it never disappears,
-  // it just switches to a Buy Now prompt. An active "all" grant surfaces
-  // every currently-published Workspace here too, with zero change to the
-  // fetchForLibrary query above — that query already fetches every
-  // published product unconditionally; attachAccessState is what decides
-  // "locked" vs. not.
-  const workspaces = products && licenses && grants
-    ? attachAccessState(products, licenses, grants).filter((w) => w.accessState !== "locked")
-    : null;
+
+  // Computed once — fetchForLibrary already returns every published product
+  // (plus any owned-but-archived extra), so this single attachAccessState
+  // call is the source for BOTH My Workspaces (accessState !== "locked")
+  // AND Explore More Workspaces (accessState === "locked"); the two can
+  // never overlap or drift since they're a strict partition of the same
+  // array, not two independently-derived lists.
+  const allWithAccess = useMemo(
+    () => (products && licenses && grants ? attachAccessState(products, licenses, grants) : null),
+    [products, licenses, grants],
+  );
+  // Only Workspaces the member actually has access to — locked (never
+  // activated/bought) Workspaces surface in Explore More instead. A
+  // Workspace stays here even after its trial expires (see
+  // LibraryWorkspaceCard) — it never disappears, it just switches to a Buy
+  // Now prompt.
+  const workspaces = useMemo(() => allWithAccess?.filter((w) => w.accessState !== "locked") ?? null, [allWithAccess]);
   const ownedProductIds = useMemo(() => (workspaces ?? []).map((w) => w.id), [workspaces]);
+  const workspaceById = useMemo(() => new Map((workspaces ?? []).map((w) => [w.id, w])), [workspaces]);
+
+  // Explore More Workspaces — published products the member has no access
+  // to yet. Zero additional Supabase queries: `products` already contains
+  // every published product (fetchForLibrary's unconditional fetch), so
+  // this is just the other half of the same attachAccessState split above.
+  // Deterministic "newest first" order, capped to a small discovery
+  // selection — not ranked/personalized (that would need catalog_index
+  // data this page doesn't fetch), and not a second Browse.
+  const exploreWorkspaces = useMemo(() => {
+    if (!allWithAccess) return [];
+    return [...allWithAccess]
+      .filter((w) => w.accessState === "locked")
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, EXPLORE_DISPLAY_LIMIT);
+  }, [allWithAccess]);
 
   // Only Workspaces where a ReviewPromptCard can actually render (see
   // LibraryWorkspaceCard) — narrower than ownedProductIds, so the batched
@@ -186,15 +194,11 @@ export function MyLibraryPage() {
 
   // catalog_index rows for the member's own owned products — the one place
   // Library reads this table, feeding badges (New/Updated/Best Seller/Free/
-  // Trial Available) and Recently Updated. An owned-but-archived Workspace
-  // has no row here (archive_product() removes it) — it just shows no
-  // badges and never qualifies for Recently Updated, the same "missing
-  // metadata, hide it" handling every other optional field already gets.
+  // Trial Available) on every My Workspaces/Continue Working/Favorites
+  // card. An owned-but-archived Workspace has no row here (archive_product()
+  // removes it) — it just shows no badges, the same "missing metadata, hide
+  // it" handling every other optional field already gets.
   const { data: catalogRows } = useAsync(() => catalogService.getByProductIds(ownedProductIds), [ownedProductIds.join(",")]);
-  const catalogRowByProductId = useMemo(
-    () => new Map((catalogRows ?? []).map((row) => [row.product_id, row])),
-    [catalogRows],
-  );
   const badgesByProductId = useMemo(() => {
     const map = new Map<string, ReturnType<typeof getWorkspaceBadges>>();
     for (const row of catalogRows ?? []) map.set(row.product_id, getWorkspaceBadges(row));
@@ -209,14 +213,6 @@ export function MyLibraryPage() {
     () => new Map((facets?.categories ?? []).map((category) => [category.id, category.name])),
     [facets],
   );
-  // Only needed to build Recommended For You's "View All" link (→ Browse,
-  // pre-filtered to the member's top owned category) — Browse already reads
-  // its category filter from this same slug via ?category= (see
-  // MarketplacePage).
-  const categorySlugById = useMemo(
-    () => new Map((facets?.categories ?? []).map((category) => [category.id, category.slug])),
-    [facets],
-  );
   // Only categories the member actually owns something in — a strict
   // subset of the site-wide facet list, so the chip row never advertises a
   // category with nothing to show.
@@ -225,7 +221,7 @@ export function MyLibraryPage() {
     return (facets?.categories ?? []).filter((category) => ownedIds.has(category.id));
   }, [facets, workspaces]);
 
-  // --- Dashboard section derivations (section ORDER itself lives in
+  // --- Quick-access rail derivations (section ORDER itself lives in
   // LibraryDashboardSections — Continue Working is always passed first and
   // rendered first, per its top-priority requirement) ---
 
@@ -247,103 +243,6 @@ export function MyLibraryPage() {
   const favoriteWorkspaces = useMemo(() => favoriteWorkspacesAll.slice(0, RAIL_DISPLAY_LIMIT), [favoriteWorkspacesAll]);
   const favoritesHasMore = favoriteWorkspacesAll.length > RAIL_DISPLAY_LIMIT;
 
-  const recentPurchaseWorkspacesAll = useMemo(() => {
-    if (!workspaces) return [];
-    return [...workspaces].sort(
-      (a, b) => new Date(b.license?.activated_at ?? 0).getTime() - new Date(a.license?.activated_at ?? 0).getTime(),
-    );
-  }, [workspaces]);
-  const recentPurchaseWorkspaces = useMemo(
-    () => recentPurchaseWorkspacesAll.slice(0, RAIL_DISPLAY_LIMIT),
-    [recentPurchaseWorkspacesAll],
-  );
-  const recentPurchasesHasMore = recentPurchaseWorkspacesAll.length > RAIL_DISPLAY_LIMIT;
-
-  const recentlyUpdatedWorkspacesAll = useMemo(() => {
-    if (!workspaces) return [];
-    return workspaces
-      .filter((w) => {
-        const catalogRow = catalogRowByProductId.get(w.id);
-        return catalogRow ? isRecentlyUpdated(catalogRow) : false;
-      })
-      .sort(
-        (a, b) =>
-          new Date(catalogRowByProductId.get(b.id)!.updated_at).getTime() -
-          new Date(catalogRowByProductId.get(a.id)!.updated_at).getTime(),
-      );
-  }, [workspaces, catalogRowByProductId]);
-  const recentlyUpdatedWorkspaces = useMemo(
-    () => recentlyUpdatedWorkspacesAll.slice(0, RAIL_DISPLAY_LIMIT),
-    [recentlyUpdatedWorkspacesAll],
-  );
-  const recentlyUpdatedHasMore = recentlyUpdatedWorkspacesAll.length > RAIL_DISPLAY_LIMIT;
-
-  // Explicit union, not just "everything owned" — expresses "don't repeat
-  // Continue Working/Favorites/Recent Purchases" as its own guarantee
-  // rather than relying on the coincidence that Recommended already
-  // excludes every owned product at the SQL level (see
-  // rankRecommendations()'s own doc comment on why this stays independent).
-  // Built from what's actually DISPLAYED (post-cap), matching the literal
-  // "exclude workspaces already displayed" requirement — a Favorite that's
-  // capped out of its own rail is fair game for Recommended again.
-  const alreadyShownProductIds = useMemo(
-    () =>
-      new Set([
-        ...continueWorking.map((w) => w.id),
-        ...favoriteWorkspaces.map((w) => w.id),
-        ...recentPurchaseWorkspaces.map((w) => w.id),
-      ]),
-    [continueWorking, favoriteWorkspaces, recentPurchaseWorkspaces],
-  );
-
-  // "Recent activity" for Recommended For You: owned categories ordered by
-  // which one the member was most recently active in (opened, else
-  // purchased), most recent first — see src/lib/recommendations.ts.
-  const ownedCategoryIdsByRecency = useMemo(() => {
-    if (!workspaces) return [];
-    const sorted = [...workspaces].sort((a, b) => lastActivityTime(b) - lastActivityTime(a));
-    const seen: string[] = [];
-    for (const workspace of sorted) {
-      if (workspace.category_id && !seen.includes(workspace.category_id)) seen.push(workspace.category_id);
-    }
-    return seen;
-  }, [workspaces]);
-
-  const { data: recommendedCandidates } = useAsync(
-    () =>
-      ownedCategoryIdsByRecency.length > 0
-        ? catalogService.getRecommendedForCategories({
-            categoryIds: ownedCategoryIdsByRecency,
-            excludeProductIds: ownedProductIds,
-            limit: RECOMMENDED_CANDIDATE_POOL,
-          })
-        : Promise.resolve([]),
-    [ownedCategoryIdsByRecency.join(","), ownedProductIds.join(",")],
-  );
-
-  const recommendedRanked = useMemo(() => {
-    if (!recommendedCandidates) return [];
-    return rankRecommendations(recommendedCandidates, {
-      ownedCategoryIdsByRecency,
-      alreadyShownProductIds,
-    });
-  }, [recommendedCandidates, ownedCategoryIdsByRecency, alreadyShownProductIds]);
-  const recommended = useMemo(() => recommendedRanked.slice(0, RECOMMENDED_DISPLAY_LIMIT), [recommendedRanked]);
-  // An approximation, not an exact count — the ranked pool itself is capped
-  // at RECOMMENDED_CANDIDATE_POOL for query cost, so this only reflects
-  // "more exist within what we fetched," not the true catalog-wide total.
-  // Good enough for a "View All" affordance to Browse, which is where the
-  // full, unbounded catalog already lives.
-  const recommendedHasMore = recommendedRanked.length > RECOMMENDED_DISPLAY_LIMIT;
-  // Recommended items aren't owned, so "View All" can't point at All
-  // Workspaces below (that list is owned-only) — it hands off to Browse,
-  // pre-filtered to whichever owned category the member was most recently
-  // active in, the same signal driving the recommendations themselves.
-  const browseAllHref = useMemo(() => {
-    const topCategorySlug = ownedCategoryIdsByRecency[0] ? categorySlugById.get(ownedCategoryIdsByRecency[0]) : undefined;
-    return topCategorySlug ? `/browse?category=${topCategorySlug}` : "/browse";
-  }, [ownedCategoryIdsByRecency, categorySlugById]);
-
   // Per-product progress signal from workspace_instances — "Not Started"
   // means a license exists but the member has never created a saved
   // instance for it yet; "In Progress"/"Completed" mean at least one
@@ -360,6 +259,14 @@ export function MyLibraryPage() {
     }
     return map;
   }, [instances]);
+
+  // My Documents — every saved instance across every owned Workspace,
+  // flattened into one chronological collection (most recently updated
+  // first). Reuses the single instances fetch above; no new query.
+  const documents = useMemo(
+    () => [...(instances ?? [])].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
+    [instances],
+  );
 
   const visibleWorkspaces = useMemo(() => {
     if (!workspaces) return null;
@@ -415,10 +322,7 @@ export function MyLibraryPage() {
 
   // Render only a bounded slice of the (already fully in-memory) filtered
   // list — the point isn't reducing what's fetched, it's keeping DOM/render
-  // cost flat regardless of library size. Each Grid card mounts a
-  // SavedChecklistsPanel and, for expired/purchased items, a
-  // ReviewPromptCard, so mounting thousands at once is the real cost, not
-  // the array filtering itself.
+  // cost flat regardless of library size.
   const pagedWorkspaces = useMemo(
     () => (visibleWorkspaces ? visibleWorkspaces.slice(0, visibleCount) : null),
     [visibleWorkspaces, visibleCount],
@@ -496,21 +400,11 @@ export function MyLibraryPage() {
           continueWorking={continueWorking}
           continueWorkingHasMore={continueWorkingHasMore}
           onViewAllContinueWorking={handleViewAllContinueWorking}
-          recommended={recommended}
-          recommendedHasMore={recommendedHasMore}
-          browseAllHref={browseAllHref}
-          recentlyUpdated={recentlyUpdatedWorkspaces}
-          recentlyUpdatedHasMore={recentlyUpdatedHasMore}
-          onViewAllRecentlyUpdated={handleViewAllRecentlyUpdated}
           favorites={favoriteWorkspaces}
           favoritesHasMore={favoritesHasMore}
           onViewAllFavorites={handleViewAllFavorites}
-          recentPurchases={recentPurchaseWorkspaces}
-          recentPurchasesHasMore={recentPurchasesHasMore}
-          onViewAllRecentPurchases={handleViewAllRecentPurchases}
           badgesByProductId={badgesByProductId}
           reviewByProductId={reviewByProductId}
-          categoryNameById={categoryNameById}
           userId={user.id}
           displayName={displayName}
           onToggleFavorite={handleToggleFavorite}
@@ -528,7 +422,7 @@ export function MyLibraryPage() {
           )}
 
           <div ref={allWorkspacesRef} className="mt-12 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-lg font-bold text-navy-900 dark:text-white">All Workspaces</h2>
+            <h2 className="text-lg font-bold text-navy-900 dark:text-white">My Workspaces</h2>
             <div className="flex items-center gap-1 rounded-full border border-navy-100 p-1 dark:border-white/10">
               <button
                 type="button"
@@ -603,37 +497,19 @@ export function MyLibraryPage() {
       )}
 
       {!isLoading && !error && pagedWorkspaces && pagedWorkspaces.length > 0 && user && viewMode === "grid" && (
-        <div className="mt-8 flex flex-col gap-8">
-          {pagedWorkspaces.map((workspace) => {
-            const canOpen =
-              workspace.accessState === "trial" || workspace.accessState === "purchased" || workspace.accessState === "unlocked";
-            return (
-              // 40/60 on desktop, 45/55 on tablet, stacked (card first) on
-              // mobile. When the Workspace can't be opened (expired trial,
-              // no active license), there's no Saved Checklists panel to
-              // pair it with — the card alone occupies just the first
-              // column's width via grid auto-placement, rather than
-              // stretching to the full row.
-              <div key={workspace.id} className="grid grid-cols-1 gap-6 md:grid-cols-[45%_55%] lg:grid-cols-[40%_60%]">
-                <LibraryWorkspaceCard
-                  workspace={workspace}
-                  userId={user.id}
-                  displayName={displayName}
-                  onToggleFavorite={() => handleToggleFavorite(workspace)}
-                  isTogglingFavorite={togglingFavoriteId === workspace.license?.id}
-                  badges={badgesByProductId.get(workspace.id)}
-                  review={reviewByProductId ? (reviewByProductId.get(workspace.id) ?? null) : undefined}
-                />
-                {canOpen && (
-                  <SavedChecklistsPanel
-                    workspace={workspace}
-                    userId={user.id}
-                    instances={(instances ?? []).filter((instance) => instance.product_id === workspace.id)}
-                  />
-                )}
-              </div>
-            );
-          })}
+        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {pagedWorkspaces.map((workspace) => (
+            <LibraryWorkspaceCard
+              key={workspace.id}
+              workspace={workspace}
+              userId={user.id}
+              displayName={displayName}
+              onToggleFavorite={() => handleToggleFavorite(workspace)}
+              isTogglingFavorite={togglingFavoriteId === workspace.license?.id}
+              badges={badgesByProductId.get(workspace.id)}
+              review={reviewByProductId ? (reviewByProductId.get(workspace.id) ?? null) : undefined}
+            />
+          ))}
         </div>
       )}
 
@@ -647,6 +523,10 @@ export function MyLibraryPage() {
           </p>
         </div>
       )}
+
+      {!isLoading && !error && <MyDocumentsSection documents={documents} workspaceById={workspaceById} />}
+
+      {!isLoading && !error && <ExploreWorkspacesSection products={exploreWorkspaces} />}
     </div>
   );
 }
