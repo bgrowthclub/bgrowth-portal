@@ -77,26 +77,21 @@ export function LibraryWorkspaceCard({
         )}
       </div>
       <div className="flex flex-1 flex-col p-6">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="text-lg font-semibold text-navy-900 dark:text-white">{workspace.name}</h3>
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={onToggleFavorite}
-              disabled={isTogglingFavorite}
-              aria-pressed={workspace.license?.is_favorite ?? false}
-              aria-label={workspace.license?.is_favorite ? "Remove from favorites" : "Add to favorites"}
-              className="text-navy-300 transition hover:text-amber-400 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white/30"
-            >
-              <Star className={`h-5 w-5 ${workspace.license?.is_favorite ? "fill-amber-400 text-amber-400" : ""}`} />
-            </button>
-            <AccessStateBadge state={workspace.accessState} />
-          </div>
-        </div>
+        {/* Title gets its own full-width row — never shares horizontal
+            space with the favorite control or the access-state badge, so a
+            long name wraps naturally instead of being squeezed by
+            shrink-0 siblings (see CLAUDE.md-equivalent audit note: this was
+            the exact cause of the mobile compression bug). */}
+        <h3 className="text-lg font-semibold text-navy-900 dark:text-white">{workspace.name}</h3>
         <p className="mt-2 line-clamp-2 text-sm text-navy-500 dark:text-white/60">
           {workspace.short_description}
         </p>
-        <WorkspaceBadgeRow badges={badges} className="mt-2" />
+        {/* Access-state badge lives with the other status/catalog badges
+            now, all wrapping together in one row. */}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <AccessStateBadge state={workspace.accessState} />
+          <WorkspaceBadgeRow badges={badges} />
+        </div>
         {expiry && (
           <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-300">
             Trial ends {expiry}
@@ -107,7 +102,19 @@ export function LibraryWorkspaceCard({
             Your trial has ended. Purchase this Workspace to keep using it.
           </p>
         )}
-        <div className="mt-5">
+        {/* Its own row — never competes with the title above or the
+            primary CTA below. */}
+        <button
+          type="button"
+          onClick={onToggleFavorite}
+          disabled={isTogglingFavorite}
+          aria-pressed={workspace.license?.is_favorite ?? false}
+          aria-label={workspace.license?.is_favorite ? "Remove from favorites" : "Add to favorites"}
+          className="mt-4 flex w-fit items-center text-navy-300 transition hover:text-amber-400 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white/30"
+        >
+          <Star className={`h-5 w-5 ${workspace.license?.is_favorite ? "fill-amber-400 text-amber-400" : ""}`} />
+        </button>
+        <div className="mt-4">
           {canOpen ? (
             <Link to={`/workspace/${workspace.slug}`}>
               <Button size="sm" className="w-full">
