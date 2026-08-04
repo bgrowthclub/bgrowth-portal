@@ -21,7 +21,6 @@ import { LibraryWorkspaceCard } from "./components/LibraryWorkspaceCard";
 import { LibraryWorkspaceListRow } from "./components/LibraryWorkspaceListRow";
 import { LibraryDashboardSections } from "./components/LibraryDashboardSections";
 import { CategoryChips } from "./components/CategoryChips";
-import { MyDocumentsSection } from "./components/MyDocumentsSection";
 import { ExploreWorkspacesSection } from "./components/ExploreWorkspacesSection";
 import {
   LibraryFilterBar,
@@ -153,7 +152,6 @@ export function MyLibraryPage() {
   // Now prompt.
   const workspaces = useMemo(() => allWithAccess?.filter((w) => w.accessState !== "locked") ?? null, [allWithAccess]);
   const ownedProductIds = useMemo(() => (workspaces ?? []).map((w) => w.id), [workspaces]);
-  const workspaceById = useMemo(() => new Map((workspaces ?? []).map((w) => [w.id, w])), [workspaces]);
 
   // Explore More Workspaces — published products the member has no access
   // to yet. Zero additional Supabase queries: `products` already contains
@@ -259,14 +257,6 @@ export function MyLibraryPage() {
     }
     return map;
   }, [instances]);
-
-  // My Documents — every saved instance across every owned Workspace,
-  // flattened into one chronological collection (most recently updated
-  // first). Reuses the single instances fetch above; no new query.
-  const documents = useMemo(
-    () => [...(instances ?? [])].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
-    [instances],
-  );
 
   const visibleWorkspaces = useMemo(() => {
     if (!workspaces) return null;
@@ -523,8 +513,6 @@ export function MyLibraryPage() {
           </p>
         </div>
       )}
-
-      {!isLoading && !error && <MyDocumentsSection documents={documents} workspaceById={workspaceById} />}
 
       {!isLoading && !error && <ExploreWorkspacesSection products={exploreWorkspaces} />}
     </div>

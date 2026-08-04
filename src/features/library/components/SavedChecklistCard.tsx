@@ -21,8 +21,10 @@ const RESERVED_ACTIONS = ["Rename", "Duplicate", "Archive", "Delete"] as const;
 interface SavedChecklistCardProps {
   instance: WorkspaceInstanceRow;
   workspaceSlug: string;
-  /** Shown above the document title so a flattened, multi-Workspace list (see MyDocumentsSection) still identifies which Workspace each document belongs to. */
+  /** Shown above the document title when showWorkspaceLabel is true — identifies which Workspace this document belongs to in a context where that isn't already obvious (e.g. a flattened, multi-Workspace list). */
   workspaceName: string;
+  /** Defaults to true. Set false when the caller already shows the Workspace name elsewhere (e.g. a group heading on /documents) — avoids repeating it on every card in that context. */
+  showWorkspaceLabel?: boolean;
   /** Null when Studio hasn't published content for this Workspace yet — the progress bar is simply omitted then ("if available"). */
   content: WorkspaceContent | null;
 }
@@ -45,7 +47,13 @@ function formatUpdatedDate(value: string): string {
  * is also why it can't live inside the Link — a button nested inside an
  * anchor is invalid HTML.
  */
-export function SavedChecklistCard({ instance, workspaceSlug, workspaceName, content }: SavedChecklistCardProps) {
+export function SavedChecklistCard({
+  instance,
+  workspaceSlug,
+  workspaceName,
+  showWorkspaceLabel = true,
+  content,
+}: SavedChecklistCardProps) {
   const progress = useWorkspaceProgress(content ?? EMPTY_CONTENT, (instance.data as WorkspaceData) ?? {});
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -76,7 +84,9 @@ export function SavedChecklistCard({ instance, workspaceSlug, workspaceName, con
 
       <div className="pointer-events-none relative z-[1] flex items-center gap-4 p-4">
         <div className="min-w-0 flex-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">{workspaceName}</span>
+          {showWorkspaceLabel && (
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">{workspaceName}</span>
+          )}
           <h4 className="truncate text-sm font-semibold text-navy-900 dark:text-white">{instance.label}</h4>
           {content && (
             <div className="mt-1.5 flex items-center gap-2">

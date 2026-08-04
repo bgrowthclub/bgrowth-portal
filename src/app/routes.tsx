@@ -15,6 +15,7 @@ import { VerifyEmailPage } from "@/features/auth/VerifyEmailPage";
 import { TrialSelectionPage } from "@/features/trial/TrialSelectionPage";
 import { TrialWelcomePage } from "@/features/trial/TrialWelcomePage";
 import { MyLibraryPage } from "@/features/library/MyLibraryPage";
+import { DocumentsPage } from "@/features/documents/DocumentsPage";
 import { MarketplacePage } from "@/features/marketplace/MarketplacePage";
 import { ProfilePage } from "@/features/profile/ProfilePage";
 import { NotFoundPage } from "./NotFoundPage";
@@ -82,6 +83,7 @@ export const router = createBrowserRouter([
           { path: "/trial-selection", element: <TrialSelectionPage /> },
           { path: "/trial-selection/welcome", element: <TrialWelcomePage /> },
           { path: "/library", element: <MyLibraryPage /> },
+          { path: "/documents", element: <DocumentsPage /> },
           { path: "/profile", element: <ProfilePage /> },
         ],
       },
