@@ -154,6 +154,7 @@ export function WorkspaceViewerPage() {
         return (
           <WorkspaceViewerLayout
             product={product}
+            documentLabel={instance?.label}
             headerActions={
               hasAccess && user ? (
                 <NewFillButton userId={user.id} productId={product.id} workspaceSlug={product.slug} />

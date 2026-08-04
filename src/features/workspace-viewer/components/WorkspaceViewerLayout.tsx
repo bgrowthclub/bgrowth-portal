@@ -7,6 +7,8 @@ interface WorkspaceViewerLayoutProps {
   children: ReactNode;
   /** The Workspace's own New Fill entry point (see WorkspaceViewerPage) — optional so this layout stays decoupled from any specific action/hook; omitted entirely when the visitor has no real access to render one for. */
   headerActions?: ReactNode;
+  /** The open instance's label (e.g. a client/job name) — only present when viewing via ?instance=<id>, so the base (instance-less) Workspace view never shows a Document line. */
+  documentLabel?: string;
 }
 
 /**
@@ -14,7 +16,7 @@ interface WorkspaceViewerLayoutProps {
  * placeholder — once BGrowth Studio's JSON product format is finalized, the
  * page that renders it slots in here without this layout changing.
  */
-export function WorkspaceViewerLayout({ product, children, headerActions }: WorkspaceViewerLayoutProps) {
+export function WorkspaceViewerLayout({ product, children, headerActions, documentLabel }: WorkspaceViewerLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col bg-white dark:bg-navy-900">
       <header className="sticky top-0 z-30 border-b border-navy-100/60 bg-white/90 backdrop-blur-md dark:border-white/10 dark:bg-navy-900/90">
@@ -24,6 +26,9 @@ export function WorkspaceViewerLayout({ product, children, headerActions }: Work
               ← Back to My Library
             </Link>
             <h1 className="truncate text-lg font-bold text-navy-900 dark:text-white">{product.name}</h1>
+            {documentLabel && (
+              <p className="truncate text-xs font-medium text-navy-500 dark:text-white/60">Document: {documentLabel}</p>
+            )}
           </div>
           {headerActions}
         </div>

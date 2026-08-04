@@ -149,28 +149,30 @@ export function WorkspaceRenderer({ content, initialData, onSave, instanceLabel 
           </p>
           <h1 className="mt-1 text-xl font-bold text-navy-900 dark:text-white">{content.brand.name}</h1>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="h-2 w-32 overflow-hidden rounded-full bg-navy-100 dark:bg-white/10">
-            <div
-              className="h-full rounded-full bg-workspace-500 transition-all duration-300"
-              style={{ width: `${progress.percent}%` }}
-            />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3">
+            <div className="h-2 w-32 overflow-hidden rounded-full bg-navy-100 dark:bg-white/10">
+              <div
+                className="h-full rounded-full bg-workspace-500 transition-all duration-300"
+                style={{ width: `${progress.percent}%` }}
+              />
+            </div>
+            <span className="text-sm font-semibold text-navy-700 dark:text-white/80">{progress.percent}%</span>
           </div>
-          <span className="text-sm font-semibold text-navy-700 dark:text-white/80">{progress.percent}%</span>
-          <div className="no-print flex items-center gap-2">
+          <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center">
             {onSave && (
               <>
-                <Button size="sm" onClick={handleSave} isLoading={isSaving}>
+                <Button size="sm" onClick={handleSave} isLoading={isSaving} className="w-full sm:w-auto">
                   Save Checklist
                 </Button>
                 {justSaved && <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Saved ✓</span>}
               </>
             )}
-            <Button size="sm" variant="secondary" onClick={() => window.print()}>
+            <Button size="sm" variant="secondary" onClick={() => window.print()} className="w-full sm:w-auto">
               <Printer className="h-4 w-4" />
               Print
             </Button>
-            <Button size="sm" onClick={handleDownloadPdf} isLoading={isGeneratingPdf}>
+            <Button size="sm" onClick={handleDownloadPdf} isLoading={isGeneratingPdf} className="w-full sm:w-auto">
               <Download className="h-4 w-4" />
               {isGeneratingPdf ? "Preparing…" : "Download PDF"}
             </Button>
