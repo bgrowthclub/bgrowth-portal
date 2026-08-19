@@ -199,6 +199,43 @@ interface WrappedTextStyle extends TextStyle {
   lineHeight: number;
 }
 
+/**
+ * The Welcome PDF is rendered with pdf-lib's standard Base-14 fonts
+ * (Helvetica/HelveticaBold), which only support WinAnsiEncoding — emoji and
+ * most symbols outside Latin-1 aren't encodable, and pdf-lib throws
+ * synchronously (from both drawText and widthOfTextAtSize) the moment one
+ * appears, e.g. a Workspace with emoji-decorated section titles like
+ * "💪 Chest". That crash used to propagate out of generateWelcomePdf()
+ * entirely — caught by the caller's try/catch (see publish.ts), but only
+ * after aborting PDF generation outright, silently producing a Workspace
+ * with no Welcome PDF at all.
+ *
+ * This strips only the characters this specific font can't encode, at
+ * render time, from a local copy of the string used just for this one
+ * drawing call — it never touches `content`/the Workspace's own stored
+ * data, which keeps its emoji exactly as authored. Iterating by `for...of`
+ * (not by UTF-16 code unit) is required here so a surrogate-pair emoji
+ * like "💪" (U+1F4AA) is tested and dropped as one whole character, not
+ * torn into two lone surrogates.
+ */
+function sanitizeForFont(font: PDFFont, text: string): string {
+  let out = '';
+  let dropped = false;
+  for (const char of text) {
+    try {
+      font.widthOfTextAtSize(char, 1);
+      out += char;
+    } catch {
+      dropped = true;
+    }
+  }
+  if (!dropped) return text;
+  // Collapse only the whitespace left behind by a removed character (e.g.
+  // "💪 Chest" -> " Chest" -> "Chest") — every other character, spacing
+  // included, is preserved exactly as it was.
+  return out.replace(/[ \t]{2,}/g, ' ').trim();
+}
+
 /** Minimal top-to-bottom layout helper: tracks a cursor down the page and adds new pages on overflow. */
 class PageWriter {
   pdfDoc: PDFDocument;
@@ -230,12 +267,15 @@ class PageWriter {
   }
 
   drawTextAt(text: string, x: number, y: number, style: TextStyle): void {
-    this.page.drawText(text, { x, y, font: style.font, size: style.size, color: style.color });
+    this.page.drawText(sanitizeForFont(style.font, text), { x, y, font: style.font, size: style.size, color: style.color });
   }
 
   /** Wraps `text` to `maxWidth`, drawing downward from `startY`, paginating as needed. Returns nothing — caller re-reads writer.cursorY. */
   drawWrappedText(text: string, x: number, startY: number, style: WrappedTextStyle): void {
-    const words = text.split(/\s+/);
+    // Sanitized up front — style.font.widthOfTextAtSize() below (the
+    // word-wrap width measurement) throws on an unencodable character just
+    // as readily as drawText does, and runs first.
+    const words = sanitizeForFont(style.font, text).split(/\s+/);
     let line = "";
     let y = startY;
     this.cursorY = y;
@@ -264,7 +304,7 @@ class PageWriter {
 
   addHeading(text: string): void {
     this.ensureSpace(28);
-    this.page.drawText(text, { x: MARGIN, y: this.cursorY, font: this.boldFont, size: 15, color: NAVY });
+    this.page.drawText(sanitizeForFont(this.boldFont, text), { x: MARGIN, y: this.cursorY, font: this.boldFont, size: 15, color: NAVY });
     this.cursorY -= 22;
   }
 
