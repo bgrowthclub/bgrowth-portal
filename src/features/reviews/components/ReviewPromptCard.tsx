@@ -21,12 +21,13 @@ interface ReviewPromptCardProps {
 }
 
 /**
- * The Trial-journey review prompt — rendered by LibraryWorkspaceCard
- * alongside Buy Now once a trial has expired, or once a Workspace is
- * purchased, for a member who hasn't reviewed it yet. Never shown during
- * an active trial (the caller only renders this for the expired/purchased
- * branches). Once submitted, the write-prompt is gone for this visit —
- * only a compact "Edit review" line remains from then on.
+ * The Product Evaluation (review) prompt — rendered by LibraryWorkspaceCard
+ * for any Workspace the member has (or had) access to: an active trial, a
+ * purchased Workspace, an access grant, or an expired trial, for a member
+ * who hasn't reviewed it yet. Not gated on trial expiration — the caller
+ * decides eligibility (see LibraryWorkspaceCard), this component only cares
+ * whether `review` already exists. Once submitted, the write-prompt is gone
+ * for this visit — only a compact "Edit review" line remains from then on.
  */
 export function ReviewPromptCard({ userId, productId, displayName, createdFrom, review }: ReviewPromptCardProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);

@@ -26,7 +26,7 @@ interface LibraryWorkspaceCardProps {
   isTogglingFavorite: boolean;
   /** Computed by the caller from catalog_index (see catalogService.getByProductIds) — absent entirely for an owned-but-archived Workspace, which simply shows no badges. */
   badges?: WorkspaceBadge[];
-  /** This member's review for this Workspace, batched by the caller (see reviewService.getForUserBatch) — undefined while that batch fetch is still loading. Only read when the ReviewPromptCard below actually renders (expired/purchased). */
+  /** This member's review for this Workspace, batched by the caller (see reviewService.getForUserBatch) — undefined while that batch fetch is still loading. Read whenever the ReviewPromptCard below renders — any access state (trial, purchased, unlocked, or expired). */
   review?: ReviewRow | null;
 }
 
@@ -126,7 +126,13 @@ export function LibraryWorkspaceCard({
           )}
         </div>
 
-        {(isExpired || isPurchased) && (
+        {/* The Product Evaluation prompt is available any time the member
+            has (or had) access to this Workspace — active trial, purchased,
+            an access grant, or an expired trial — not only once the trial
+            ends or the Workspace is bought. Only "locked" (never
+            activated/bought — this card never renders for that state at
+            all, see MyLibraryPage) has nothing to evaluate. */}
+        {(canOpen || isExpired) && (
           <div className="mt-4">
             <ReviewPromptCard
               userId={userId}

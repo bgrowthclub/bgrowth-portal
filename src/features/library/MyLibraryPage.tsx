@@ -168,22 +168,20 @@ export function MyLibraryPage() {
       .slice(0, EXPLORE_DISPLAY_LIMIT);
   }, [allWithAccess]);
 
-  // Only Workspaces where a ReviewPromptCard can actually render (see
-  // LibraryWorkspaceCard) — narrower than ownedProductIds, so the batched
-  // review lookup below never fetches rows for a Workspace that couldn't
-  // show a review prompt anyway (e.g. an active, unexpired trial).
-  const reviewEligibleProductIds = useMemo(
-    () => (workspaces ?? []).filter((w) => w.accessState === "expired" || w.accessState === "purchased").map((w) => w.id),
-    [workspaces],
-  );
-  // One query for every eligible product at once, instead of the N
-  // individual lookups ReviewPromptCard used to fire itself (one per
-  // rendered card) — see reviewService.getForUserBatch. `undefined` while
-  // loading; every LibraryWorkspaceCard below treats that the same as its
-  // own review still being fetched.
+  // The Product Evaluation (review) prompt is available for any Workspace
+  // the member has access to at all — active trial, expired trial,
+  // purchased, or an access grant — not only expired/purchased (see
+  // LibraryWorkspaceCard). ownedProductIds already excludes "locked"
+  // Workspaces the member has no access to, so it's the right eligibility
+  // set as-is; no separate, narrower list needed.
+  // One query for every owned product at once, instead of the N individual
+  // lookups ReviewPromptCard used to fire itself (one per rendered card) —
+  // see reviewService.getForUserBatch. `undefined` while loading; every
+  // LibraryWorkspaceCard below treats that the same as its own review still
+  // being fetched.
   const { data: reviewRows } = useAsync(
-    () => (user ? reviewService.getForUserBatch(user.id, reviewEligibleProductIds) : Promise.resolve([])),
-    [user?.id, reviewEligibleProductIds.join(",")],
+    () => (user ? reviewService.getForUserBatch(user.id, ownedProductIds) : Promise.resolve([])),
+    [user?.id, ownedProductIds.join(",")],
   );
   const reviewByProductId = useMemo(
     () => (reviewRows ? new Map(reviewRows.map((review) => [review.product_id, review])) : undefined),
@@ -477,10 +475,13 @@ export function MyLibraryPage() {
             <LibraryWorkspaceListRow
               key={workspace.id}
               workspace={workspace}
+              userId={user.id}
+              displayName={displayName}
               categoryName={workspace.category_id ? categoryNameById.get(workspace.category_id) : undefined}
               onToggleFavorite={() => handleToggleFavorite(workspace)}
               isTogglingFavorite={togglingFavoriteId === workspace.license?.id}
               badges={badgesByProductId.get(workspace.id)}
+              review={reviewByProductId ? (reviewByProductId.get(workspace.id) ?? null) : undefined}
             />
           ))}
         </div>
