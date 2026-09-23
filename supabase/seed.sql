@@ -35,7 +35,7 @@ select portal.publish_product(
     "productId": "notary-appointment-checklist",
     "brand": {
       "name": "Notary Appointment Workflow Checklist",
-      "companyLabel": "BGrowth Club",
+      "companyLabel": "BGrowth",
       "primaryColor": "#1061EC"
     },
     "footer": {
@@ -227,7 +227,7 @@ select portal.publish_product(
     "productId": "cleaning-moveout-checklist",
     "brand": {
       "name": "Move-Out Cleaning Inspection Checklist",
-      "companyLabel": "BGrowth Club",
+      "companyLabel": "BGrowth",
       "primaryColor": "#0EA5A0"
     },
     "footer": {

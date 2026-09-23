@@ -36,6 +36,21 @@ const ProductPage = lazy(() =>
   import("@/features/product/ProductPage").then((m) => ({ default: m.ProductPage })),
 );
 
+// Document V1 (see src/features/workspace-viewer/document-v1/) — an isolated,
+// unfinished renderer with no production wiring anywhere else. The route
+// entry below only exists when `import.meta.env.DEV` is true, so the
+// production route table never contains "/dev/document-v1-preview" (verified
+// against a real `npm run build` output — the path string does not appear
+// anywhere in dist/assets/*.js) and it cannot be reached by navigating a
+// production build. Vite's code-splitting still emits this component's lazy
+// chunk as a standalone file in dist/ (nothing references it, so it's
+// unreachable, just not physically deleted from the build output).
+const DocumentV1PreviewPage = lazy(() =>
+  import("@/features/workspace-viewer/document-v1/DocumentV1PreviewPage").then((m) => ({
+    default: m.DocumentV1PreviewPage,
+  })),
+);
+
 export const router = createBrowserRouter([
   {
     element: <PublicLayout />,
@@ -55,6 +70,22 @@ export const router = createBrowserRouter([
       // CatalogProductCard's own signed-out pendingRedirect handling), not
       // the page itself.
       { path: "/browse", element: <MarketplacePage /> },
+      // Dev-only: Document V1 isolated preview (see comment above this
+      // route's lazy import). `import.meta.env.DEV` is false in a
+      // production build, so this route entry doesn't exist at all once
+      // built — not just hidden, genuinely absent from the router.
+      ...(import.meta.env.DEV
+        ? [
+            {
+              path: "/dev/document-v1-preview",
+              element: (
+                <Suspense fallback={<FullPageSpinner />}>
+                  <DocumentV1PreviewPage />
+                </Suspense>
+              ),
+            },
+          ]
+        : []),
     ],
   },
   {

@@ -68,10 +68,31 @@
   left: 0;
 }
 
+/* width:100% (not a fixed 800px) — see src/lib/pdf.ts's doc comment for the
+   full derivation: a fixed 800px here got inherited by html2pdf.js's own
+   internal capture clone, which lives inside a wrapper html2pdf sizes to
+   the real printable page width (under 800px at any realistic margin),
+   silently losing every line of text within ~60-75px of the right edge in
+   the exported PDF. This element's parent (.printable-summary-container)
+   is forced to 800px by pdf.ts right before capture, so width:100% still
+   renders at 800px for our own off-screen instance; only html2pdf's own,
+   narrower clone context is affected by this change. */
 .printable-summary {
-  width: 800px;
+  width: 100%;
   background-color: #ffffff;
   position: relative;
+}
+
+/* Matches downloadElementAsPdf's own margin option (DocumentWorkspaceRenderer.tsx
+   passes [5, 10, 5, 10] mm) so browser Print and Download PDF produce the
+   same page margins instead of Print falling back to the browser/OS print
+   dialog's own default (often ~12.7mm/0.5in) — without this, "Print
+   filled"/"Print blank" and "Download PDF"/"Download blank PDF" could
+   visually diverge even though they render the exact same DOM. Kept in sync
+   with bgrowth-studio's own copy of this same rule. */
+@page {
+  size: letter;
+  margin: 5mm 10mm;
 }
 
 @media print {

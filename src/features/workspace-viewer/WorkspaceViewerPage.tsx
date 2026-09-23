@@ -10,7 +10,7 @@ import { deriveAccessState, isGrantActive } from "@/lib/workspaceAccess";
 import { FullPageSpinner } from "@/components/ui/Spinner";
 import { FetchErrorState } from "@/components/ui/FetchErrorState";
 import { WorkspaceViewerLayout } from "./components/WorkspaceViewerLayout";
-import { WorkspaceRenderer } from "./components/WorkspaceRenderer";
+import { DocumentWorkspaceRenderer } from "./document-v1/DocumentWorkspaceRenderer";
 import { NewFillButton } from "./components/NewFillButton";
 import type { WorkspaceInstanceRow } from "@/types/database";
 import type { WorkspaceData } from "@/types/workspaceContent";
@@ -162,7 +162,7 @@ export function WorkspaceViewerPage() {
             }
           >
             {product.content ? (
-              <WorkspaceRenderer
+              <DocumentWorkspaceRenderer
                 content={product.content}
                 initialData={instance?.data as WorkspaceData | undefined}
                 onSave={instance ? handleSaveInstance : undefined}
