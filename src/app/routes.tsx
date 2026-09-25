@@ -70,22 +70,6 @@ export const router = createBrowserRouter([
       // CatalogProductCard's own signed-out pendingRedirect handling), not
       // the page itself.
       { path: "/browse", element: <MarketplacePage /> },
-      // Dev-only: Document V1 isolated preview (see comment above this
-      // route's lazy import). `import.meta.env.DEV` is false in a
-      // production build, so this route entry doesn't exist at all once
-      // built — not just hidden, genuinely absent from the router.
-      ...(import.meta.env.DEV
-        ? [
-            {
-              path: "/dev/document-v1-preview",
-              element: (
-                <Suspense fallback={<FullPageSpinner />}>
-                  <DocumentV1PreviewPage />
-                </Suspense>
-              ),
-            },
-          ]
-        : []),
     ],
   },
   {
@@ -129,5 +113,25 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  // Dev-only: Document V1 isolated preview (see comment above this route's
+  // lazy import). `import.meta.env.DEV` is false in a production build, so
+  // this route entry doesn't exist at all once built — not just hidden,
+  // genuinely absent from the router. Deliberately its own top-level entry —
+  // no layout wrapper, no ProtectedRoute — mirroring /workspace/:slug's own
+  // "no AppLayout" placement above (so this harness's optional ?shell=1
+  // faithfully wraps only WorkspaceViewerLayout, exactly like production)
+  // and staying reachable without a real Supabase session, same as before.
+  ...(import.meta.env.DEV
+    ? [
+        {
+          path: "/dev/document-v1-preview",
+          element: (
+            <Suspense fallback={<FullPageSpinner />}>
+              <DocumentV1PreviewPage />
+            </Suspense>
+          ),
+        },
+      ]
+    : []),
   { path: "*", element: <NotFoundPage /> },
 ]);

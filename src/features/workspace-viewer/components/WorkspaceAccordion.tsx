@@ -1,3 +1,4 @@
+import type { Ref } from "react";
 import type { WorkspaceContent, WorkspaceData, SectionConfig } from "@/types/workspaceContent";
 import type { SectionProgress } from "../hooks/useWorkspaceProgress";
 import type { WorkspaceStatusKind } from "./WorkspaceStatusBadge";
@@ -18,6 +19,10 @@ interface WorkspaceAccordionProps {
   isContinueSaving: boolean;
   /** Set when that save fails — shown on the active section so the member knows why they're still here. */
   continueError: string | null;
+  /** Attached to the active section's own wrapper (not the whole accordion) so the
+   * caller can scroll precisely to whichever section just became active after
+   * Save & Continue — see DocumentWorkspaceRenderer.tsx's advance(). */
+  activeSectionRef?: Ref<HTMLDivElement>;
 }
 
 function statusFor(progress: SectionProgress): { label: string; kind: WorkspaceStatusKind } {
@@ -36,6 +41,7 @@ export function WorkspaceAccordion({
   progressBySection,
   isContinueSaving,
   continueError,
+  activeSectionRef,
 }: WorkspaceAccordionProps) {
   const totalSteps = content.sections.length;
 
@@ -75,22 +81,23 @@ export function WorkspaceAccordion({
             key: section.id,
           });
           return (
-            <WorkspaceSectionShell
-              key={section.id}
-              number={section.number}
-              totalSteps={totalSteps}
-              icon={<Icon />}
-              title={section.title}
-              description={section.description}
-              whyItMatters={section.whyItMatters}
-              tip={section.tip}
-              isLast={section.number === totalSteps}
-              onContinue={() => onContinue(section.id)}
-              isSaving={isContinueSaving}
-              saveError={continueError}
-            >
-              <WorkspaceSectionFields section={section} data={data} onSectionValueChange={onSectionValueChange} />
-            </WorkspaceSectionShell>
+            <div key={section.id} ref={activeSectionRef} className="scroll-mt-24">
+              <WorkspaceSectionShell
+                number={section.number}
+                totalSteps={totalSteps}
+                icon={<Icon />}
+                title={section.title}
+                description={section.description}
+                whyItMatters={section.whyItMatters}
+                tip={section.tip}
+                isLast={section.number === totalSteps}
+                onContinue={() => onContinue(section.id)}
+                isSaving={isContinueSaving}
+                saveError={continueError}
+              >
+                <WorkspaceSectionFields section={section} data={data} onSectionValueChange={onSectionValueChange} />
+              </WorkspaceSectionShell>
+            </div>
           );
         }
 

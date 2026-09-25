@@ -50,6 +50,7 @@ export function DocumentWorkspaceRenderer({ content, initialData, onSave, instan
   const [isBlankPrintPending, setIsBlankPrintPending] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const printableRef = useRef<HTMLDivElement>(null);
+  const activeSectionRef = useRef<HTMLDivElement>(null);
 
   const progress = useWorkspaceProgress(content, data);
   const printData = isBlankPrintPending ? {} : data;
@@ -67,7 +68,17 @@ export function DocumentWorkspaceRenderer({ content, initialData, onSave, instan
     const next = content.sections[index + 1];
     setActiveId(next ? next.id : sectionId);
     if (next) {
-      rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Deferred to the next frame so this runs after React has committed the
+      // new active section into the DOM (activeSectionRef always points at
+      // whichever section is currently active — see WorkspaceAccordion).
+      // Previously scrolled rootRef (the whole accordion's static top) instead
+      // of the section that just became active, which is why the next
+      // section could land mid-scroll instead of at its own top. scroll-mt-24
+      // on that wrapper keeps its title clear of the sticky page header
+      // (WorkspaceViewerLayout).
+      requestAnimationFrame(() => {
+        activeSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     } else {
       setHasReachedEnd(true);
     }
@@ -273,6 +284,7 @@ export function DocumentWorkspaceRenderer({ content, initialData, onSave, instan
             progressBySection={progress.sections}
             isContinueSaving={isSectionSaving}
             continueError={sectionSaveError}
+            activeSectionRef={activeSectionRef}
           />
         </WorkspaceRuntimeErrorBoundary>
       </div>

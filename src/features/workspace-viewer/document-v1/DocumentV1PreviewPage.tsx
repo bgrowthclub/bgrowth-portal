@@ -4,7 +4,9 @@ import { notaryWorkspaceData } from "./fixtures/notaryWorkspaceData";
 import { notaryWorkspaceDataEmpty } from "./fixtures/notaryWorkspaceDataEmpty";
 import { notaryWorkspaceDataLong } from "./fixtures/notaryWorkspaceDataLong";
 import { DocumentWorkspaceRenderer } from "./DocumentWorkspaceRenderer";
+import { WorkspaceViewerLayout } from "../components/WorkspaceViewerLayout";
 import type { WorkspaceData } from "@/types/workspaceContent";
+import type { ProductRow } from "@/types/database";
 
 type Scenario = "populated" | "empty" | "long";
 
@@ -12,6 +14,39 @@ const SCENARIOS: Record<Scenario, { label: string; data: WorkspaceData; instance
   populated: { label: "Populated", data: notaryWorkspaceData, instanceLabel: "Preview — Elena Marquez" },
   empty: { label: "Mostly Empty", data: notaryWorkspaceDataEmpty, instanceLabel: "Preview — Elena Marquez (just started)" },
   long: { label: "Long Content", data: notaryWorkspaceDataLong, instanceLabel: "Preview — Elena Marquez-Whitfield (multi-doc signing)" },
+};
+
+/**
+ * Fixture only, for the `?shell=1` toggle below — mirrors the real
+ * WorkspaceViewerPage.tsx's `product` shape closely enough to render
+ * WorkspaceViewerLayout, without any Supabase query. Not a real product.
+ */
+const FIXTURE_PRODUCT: ProductRow = {
+  id: "fixture-product",
+  studio_product_id: "notary-appointment-checklist",
+  slug: "notary-appointment-workspace",
+  name: notaryWorkspaceContent.brand.name,
+  short_description: "",
+  cover_image_url: null,
+  category_id: null,
+  app_url: null,
+  is_trial_eligible: true,
+  trial_duration: 7,
+  trial_unit: "days",
+  content_type: "workspace",
+  content_version: 1,
+  metadata: {},
+  status: "published",
+  current_version: 1,
+  last_published_at: null,
+  last_published_by: null,
+  content: notaryWorkspaceContent,
+  welcome_pdf_url: null,
+  is_free: false,
+  price_cents: 1900,
+  currency: "usd",
+  stripe_price_id: null,
+  created_at: new Date().toISOString(),
 };
 
 /**
@@ -25,15 +60,25 @@ const SCENARIOS: Record<Scenario, { label: string; data: WorkspaceData; instance
  * switchable via ?scenario=populated|empty|long, so the same renderer's
  * pagination can be validated across very different content lengths without
  * touching any real workspace_instances row. No Supabase query, no auth.
+ *
+ * ?shell=1 additionally wraps the renderer in the real WorkspaceViewerLayout
+ * (against FIXTURE_PRODUCT, a fixture — no Supabase query) — the real
+ * production app shell (Back to My Library / product title / New Fill) that
+ * WorkspaceViewerPage.tsx always renders around this same
+ * DocumentWorkspaceRenderer. Without this toggle, this harness could never
+ * catch a shell-related print bug (e.g. the app shell itself printing above
+ * the document — see the PDF header cleanup report) — the toggle exists
+ * specifically to validate that no-print now hides it.
  */
 export function DocumentV1PreviewPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get("scenario");
   const scenario: Scenario = requested === "empty" || requested === "long" ? requested : "populated";
   const { data, instanceLabel } = SCENARIOS[scenario];
+  const showShell = searchParams.get("shell") === "1";
 
-  return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
+  const body = (
+    <>
       <div className="no-print card mb-4 flex flex-col gap-1 rounded-xl border border-amber-300 bg-amber-50 p-4 text-[13px] text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
         <strong>Document V1 preview</strong> — isolated test harness using fixture data, not a real product or saved
         instance. This is the same DocumentWorkspaceRenderer the real Workspace route now uses; only the data below is
@@ -47,7 +92,7 @@ export function DocumentV1PreviewPage() {
           {(Object.keys(SCENARIOS) as Scenario[]).map((key) => (
             <button
               key={key}
-              onClick={() => setSearchParams(key === "populated" ? {} : { scenario: key })}
+              onClick={() => setSearchParams(key === "populated" ? {} : { scenario: key, ...(showShell ? { shell: "1" } : {}) })}
               className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
                 scenario === key
                   ? "bg-workspace-500 text-white"
@@ -68,6 +113,21 @@ export function DocumentV1PreviewPage() {
           instanceLabel={instanceLabel}
         />
       </div>
-    </div>
+    </>
   );
+
+  if (showShell) {
+    // Note: the real /workspace/:slug route is registered as a sibling of
+    // AppLayout in routes.tsx specifically so it renders "no AppHeader" —
+    // WorkspaceViewerLayout's own header is the only app-shell chrome a real
+    // Workspace Viewer page ever has. This mirrors that: just
+    // WorkspaceViewerLayout, nothing else.
+    return (
+      <WorkspaceViewerLayout product={FIXTURE_PRODUCT} headerActions={<button className="btn-secondary no-print">New Fill</button>}>
+        {body}
+      </WorkspaceViewerLayout>
+    );
+  }
+
+  return <div className="mx-auto max-w-4xl px-6 py-10">{body}</div>;
 }

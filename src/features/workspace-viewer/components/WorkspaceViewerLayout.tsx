@@ -19,7 +19,16 @@ interface WorkspaceViewerLayoutProps {
 export function WorkspaceViewerLayout({ product, children, headerActions, documentLabel }: WorkspaceViewerLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col bg-white dark:bg-navy-900">
-      <header className="sticky top-0 z-30 border-b border-navy-100/60 bg-white/90 backdrop-blur-md dark:border-white/10 dark:bg-navy-900/90">
+      {/* no-print: this is the Portal app shell (Back to My Library / product
+          title / New Fill), not the document itself — without this it gets
+          captured by a real window.print() (Print Filled/Print Blank), which
+          duplicated the product title above the document's own header (see
+          the PDF header cleanup report). Only affects @media print — the
+          on-screen experience is unchanged; matches how Studio's own
+          app-shell headers (ProductHeader.tsx, StudioNav.tsx) already use
+          no-print. Does not affect Download PDF, which already only
+          captures the isolated document element, not this page shell. */}
+      <header className="no-print sticky top-0 z-30 border-b border-navy-100/60 bg-white/90 backdrop-blur-md dark:border-white/10 dark:bg-navy-900/90">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
           <div className="min-w-0">
             <Link to="/library" className="text-xs font-medium text-primary hover:underline">

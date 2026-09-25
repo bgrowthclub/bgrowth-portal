@@ -207,12 +207,11 @@ export const DocumentPrintSummary = forwardRef<HTMLDivElement, DocumentPrintSumm
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-              {content.brand.companyLabel}
-            </span>
-
-            {/* Product Identity */}
-            <h1 className="mt-1 text-[21px] font-bold leading-tight tracking-tight text-[#0b1d3a]">{content.brand.name}</h1>
+            {/* No standalone "BGROWTH" eyebrow here — the product title is the
+                only left-side text; BGrowth's own identity lives in the logo
+                on the right (see the PDF header cleanup report). Matches
+                bgrowth-studio's PrintableSummary.tsx. */}
+            <h1 className="text-[21px] font-bold leading-tight tracking-tight text-[#0b1d3a]">{content.brand.name}</h1>
             <div className="mt-2 h-[2px] w-10" style={{ backgroundColor: primaryColor }} />
           </div>
 
@@ -223,7 +222,6 @@ export const DocumentPrintSummary = forwardRef<HTMLDivElement, DocumentPrintSumm
             <img src={bgrowthLogo} alt="BGrowth" className="h-7 w-7 rounded-lg object-cover shrink-0" />
             <div className="flex flex-col leading-none">
               <span className="text-[12.5px] font-extrabold tracking-tight text-[#0b1d3a]">BGrowth</span>
-              <span className="text-[6.5px] font-semibold uppercase tracking-widest text-gray-400">Business Growth</span>
             </div>
           </div>
         </div>
