@@ -51,6 +51,7 @@ export function DocumentWorkspaceRenderer({ content, initialData, onSave, instan
   const rootRef = useRef<HTMLDivElement>(null);
   const printableRef = useRef<HTMLDivElement>(null);
   const activeSectionRef = useRef<HTMLDivElement>(null);
+  const completionRef = useRef<HTMLDivElement>(null);
 
   const progress = useWorkspaceProgress(content, data);
   const printData = isBlankPrintPending ? {} : data;
@@ -58,6 +59,20 @@ export function DocumentWorkspaceRenderer({ content, initialData, onSave, instan
   useEffect(() => {
     if (rootRef.current) applyWorkspaceTheme(content.brand.primaryColor, rootRef.current);
   }, [content.brand.primaryColor]);
+
+  // Clicking "Finish Workspace" already saves and reveals WorkspaceCompletionPanel
+  // (see advance() below), but the panel renders above the accordion the
+  // member is scrolled down into (they were just reading the last section) —
+  // without this, nothing on screen changes from the member's point of view,
+  // which is exactly the "did that actually work?" gap this closes. Scrolls
+  // the same way advance() already does for a normal Save & Continue: next
+  // frame, so React has committed the panel into the DOM first.
+  useEffect(() => {
+    if (!hasReachedEnd) return;
+    requestAnimationFrame(() => {
+      completionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [hasReachedEnd]);
 
   function handleSectionValueChange(sectionId: string, value: WorkspaceData[string]) {
     setData((prev) => ({ ...prev, [sectionId]: value }));
@@ -270,7 +285,9 @@ export function DocumentWorkspaceRenderer({ content, initialData, onSave, instan
         </div>
 
         {hasReachedEnd && (
-          <WorkspaceCompletionPanel workspaceName={content.brand.name} onReviewSections={() => setHasReachedEnd(false)} />
+          <div ref={completionRef} className="scroll-mt-24">
+            <WorkspaceCompletionPanel workspaceName={content.brand.name} onReviewSections={() => setHasReachedEnd(false)} />
+          </div>
         )}
 
         <WorkspaceRuntimeErrorBoundary>

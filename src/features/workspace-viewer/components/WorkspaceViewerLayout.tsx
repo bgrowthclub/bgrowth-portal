@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { ProductRow } from "@/types/database";
+import { Logo } from "@/components/layout/Logo";
 
 interface WorkspaceViewerLayoutProps {
   product: ProductRow;
@@ -30,14 +31,25 @@ export function WorkspaceViewerLayout({ product, children, headerActions, docume
           captures the isolated document element, not this page shell. */}
       <header className="no-print sticky top-0 z-30 border-b border-navy-100/60 bg-white/90 backdrop-blur-md dark:border-white/10 dark:bg-navy-900/90">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <div className="min-w-0">
-            <Link to="/library" className="text-xs font-medium text-primary hover:underline">
-              ← Back to My Library
-            </Link>
-            <h1 className="truncate text-lg font-bold text-navy-900 dark:text-white">{product.name}</h1>
-            {documentLabel && (
-              <p className="truncate text-xs font-medium text-navy-500 dark:text-white/60">Document: {documentLabel}</p>
-            )}
+          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+            {/* Identifies this as a BGrowth application even mid-Workspace,
+                where the AppHeader/Logo the rest of the app shows never
+                renders (this layout deliberately has no AppHeader — see
+                routes.tsx). Reuses the same Logo component/asset as
+                everywhere else, not a redrawn or resized mark. flex-wrap on
+                this row (not just the outer one) lets it drop to its own
+                line before anything overflows horizontally on a narrow
+                phone, matching how headerActions already wraps below. */}
+            <Logo className="shrink-0" />
+            <div className="min-w-0">
+              <Link to="/library" className="text-xs font-medium text-primary hover:underline">
+                ← Back to My Library
+              </Link>
+              <h1 className="truncate text-lg font-bold text-navy-900 dark:text-white">{product.name}</h1>
+              {documentLabel && (
+                <p className="truncate text-xs font-medium text-navy-500 dark:text-white/60">Document: {documentLabel}</p>
+              )}
+            </div>
           </div>
           {headerActions}
         </div>

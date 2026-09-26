@@ -37,6 +37,22 @@ interface DocumentPrintSummaryProps {
 
 const SKIPPED_FIELD_TYPES = ["title", "static_text", "image", "static_image", "file", "link"];
 
+/**
+ * Recognizes BGrowth's recurring cross-product "Continue Your Journey" /
+ * "Continue Sua Jornada" promotional section by its title text — no schema
+ * field distinguishes a promotional section from any other content section
+ * (see workspaceContent.schema.ts's sectionBaseSchema), so title matching
+ * against this brand-standard, product-agnostic phrase (in either language
+ * it's currently authored in) is the only available signal. Matches
+ * regardless of an emoji/number prefix Studio may have added to the title.
+ * Excludes the section from Print/PDF only — the online Workspace
+ * (WorkspaceAccordion) never calls this and keeps rendering it unchanged.
+ */
+function isJourneyCtaSection(section: { title: string }): boolean {
+  const normalized = section.title.toLowerCase();
+  return normalized.includes("continue your journey") || normalized.includes("continue sua jornada");
+}
+
 /** Section container: keeps the whole section together when it's reasonably short (see rule #1/#6 — not applied unconditionally to arbitrarily long content). */
 const SECTION_BLOCK_STYLE: CSSProperties = { breakInside: "avoid", pageBreakInside: "avoid" };
 /** Heading-only protection: keeps a heading from ever landing alone at the bottom of a page even when the section body itself is allowed to flow across a break (long checklists). */
@@ -56,16 +72,28 @@ function SectionHeading({ section, primaryColor }: { section: SectionConfig; pri
   );
 }
 
-function FormLine({ label, value }: { label: string; value?: string }) {
+function FormLine({ label, value, isBlank }: { label: string; value?: string; isBlank: boolean }) {
   return (
     <div className="mb-2 break-words">
       <div className="text-[8.5px] font-semibold uppercase tracking-wide text-slate-400">{label}</div>
-      <div className="text-[10.5px] leading-snug text-slate-900">{value || <span className="text-slate-300">—</span>}</div>
+      {isBlank ? (
+        // Blank document: a clean, unobtrusive writing line instead of a "—"
+        // placeholder — a dash reads as "no content belongs here" rather
+        // than "write your answer here". Reuses the same slate-300 hairline
+        // already used for checkbox borders elsewhere in this file, sized to
+        // the filled line's own height so the field grid's vertical rhythm
+        // doesn't shift between filled and blank output.
+        <div className="h-[14px] border-b border-slate-300" aria-hidden="true" />
+      ) : (
+        // Filled document: unchanged — an individual field the member left
+        // empty still shows "—", exactly as before.
+        <div className="text-[10.5px] leading-snug text-slate-900">{value || <span className="text-slate-300">—</span>}</div>
+      )}
     </div>
   );
 }
 
-function FormSectionBody({ section, data }: { section: FormSectionConfig; data: WorkspaceData }) {
+function FormSectionBody({ section, data, isBlank }: { section: FormSectionConfig; data: WorkspaceData; isBlank: boolean }) {
   const values = (data[section.id] as Record<string, string>) ?? {};
   const fields = section.fields.filter((field) => !SKIPPED_FIELD_TYPES.includes(field.type));
 
@@ -86,7 +114,7 @@ function FormSectionBody({ section, data }: { section: FormSectionConfig; data: 
         }
         return (
           <div key={field.id} className={spanFull ? "col-span-2" : ""}>
-            <FormLine label={field.label} value={values[field.id]} />
+            <FormLine label={field.label} value={values[field.id]} isBlank={isBlank} />
           </div>
         );
       })}
@@ -138,7 +166,17 @@ function NotesSectionBody({ section, data }: { section: SectionConfig; data: Wor
   );
 }
 
-function ContentSection({ section, data, primaryColor }: { section: SectionConfig; data: WorkspaceData; primaryColor: string }) {
+function ContentSection({
+  section,
+  data,
+  primaryColor,
+  isBlank,
+}: {
+  section: SectionConfig;
+  data: WorkspaceData;
+  primaryColor: string;
+  isBlank: boolean;
+}) {
   // Checklist sections are the one type long enough to reasonably span a
   // page break. html2pdf's `avoid-all` pagebreak mode doesn't read a CSS
   // `break-inside: auto` override to "release" a block it would otherwise
@@ -183,7 +221,7 @@ function ContentSection({ section, data, primaryColor }: { section: SectionConfi
         {section.description && <p className="mt-0.5 pl-[27px] text-[9.5px] text-slate-400">{section.description}</p>}
       </div>
       <div className="mt-2 pl-[27px]">
-        {section.type === "form" && <FormSectionBody section={section} data={data} />}
+        {section.type === "form" && <FormSectionBody section={section} data={data} isBlank={isBlank} />}
         {section.type === "outcome" && <OutcomeSectionBody section={section} data={data} primaryColor={primaryColor} />}
         {section.type === "notes" && <NotesSectionBody section={section} data={data} />}
       </div>
@@ -203,8 +241,12 @@ export const DocumentPrintSummary = forwardRef<HTMLDivElement, DocumentPrintSumm
     const isBlank = !data || Object.keys(data).length === 0;
 
     return (
-      <div ref={ref} className="printable-summary document-v1 select-none p-8 font-sans text-slate-900">
-        {/* Header */}
+      <div ref={ref} className="printable-summary document-v1 select-none px-8 pb-8 pt-5 font-sans text-slate-900">
+        {/* Header — product title, logo, and generated date only. Fill/blank
+            status used to also live here ("Filled document"/"100% complete"/
+            "Blank template"/"Blank Form") — moved to live exclusively in the
+            footer below, so status isn't duplicated in two places on the
+            page (see the header/footer status cleanup report). */}
         <div className="flex items-start justify-between">
           <div>
             {/* No standalone "BGROWTH" eyebrow here — the product title is the
@@ -226,12 +268,8 @@ export const DocumentPrintSummary = forwardRef<HTMLDivElement, DocumentPrintSumm
           </div>
         </div>
 
-        {/* Progress / Metadata */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-[10px] text-slate-500" style={SECTION_BLOCK_STYLE}>
-          <span>{isBlank ? "Blank template" : "Filled document"}</span>
-          <span className="font-semibold" style={{ color: primaryColor }}>
-            {isBlank ? "Blank Form" : `${percent}% complete`}
-          </span>
+        {/* Metadata — generated date only now (see header comment above). */}
+        <div className="mt-3 flex items-center justify-end text-[10px] text-slate-500" style={SECTION_BLOCK_STYLE}>
           <span>Generated {today}</span>
         </div>
 
@@ -239,11 +277,16 @@ export const DocumentPrintSummary = forwardRef<HTMLDivElement, DocumentPrintSumm
             No flex `gap` here deliberately: a checklist section renders as flat sibling item rows
             (see ContentSection), and a `gap` on this container would apply between every single
             item row, not just between sections — each unit below spaces itself instead, via its
-            own top border + padding (section starts) or its own compact `py` (checklist items). */}
+            own top border + padding (section starts) or its own compact `py` (checklist items).
+            Excludes the "Continue Your Journey"/"Continue Sua Jornada" promotional section (see
+            isJourneyCtaSection above) — Print/PDF ends with the member's real content, never
+            this online-only cross-sell block. */}
         <div className="mt-4 flex flex-col">
-          {content.sections.map((section) => (
-            <ContentSection key={section.id} section={section} data={data} primaryColor={primaryColor} />
-          ))}
+          {content.sections
+            .filter((section) => !isJourneyCtaSection(section))
+            .map((section) => (
+              <ContentSection key={section.id} section={section} data={data} primaryColor={primaryColor} isBlank={isBlank} />
+            ))}
         </div>
 
         {/* Footer — page/document metadata, kept out of the content flow above.
