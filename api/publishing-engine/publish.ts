@@ -265,6 +265,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (error) throw error;
 
+    // The BGrowth Website (bgrowth.app) reads the same `portal` schema as the
+    // Portal, so a Portal publish is live on the Website too. Record that in
+    // the per-destination ledger as its own 'website' row, so the ledger
+    // matches reality and the Website keeps its record once the Portal is
+    // retired. Best-effort: the publish above already succeeded.
+    if (payload.destinationKey === "portal") {
+      const { data: website, error: websiteError } = await supabase
+        .from("publication_destinations")
+        .select("id")
+        .eq("key", "website")
+        .maybeSingle();
+      const { error: ledgerError } = website
+        ? await supabase.from("product_destinations").upsert(
+            {
+              product_id: product.id,
+              destination_id: website.id,
+              status: payload.status,
+              published_version: product.current_version,
+              last_published_at: product.last_published_at,
+              last_published_by: payload.publishedBy,
+            },
+            { onConflict: "product_id,destination_id" },
+          )
+        : { error: websiteError };
+      if (ledgerError) console.error("[publishing-engine/publish] website ledger row failed:", ledgerError);
+    }
+
     // Retention-window cleanup — only ever runs AFTER the new version above
     // has already committed successfully, so the previous assets are never
     // removed until their replacement genuinely exists. Best-effort: logs
