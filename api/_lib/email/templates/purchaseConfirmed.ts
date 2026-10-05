@@ -1,3 +1,4 @@
+import { escapeHtml } from "../escapeHtml.js";
 import { renderEmailLayout } from "../layout.js";
 
 export interface PurchaseConfirmedEmailInput {
@@ -28,13 +29,13 @@ export function buildPurchaseConfirmedEmail({
   productSlug,
   welcomePdfUrl,
 }: PurchaseConfirmedEmailInput): { subject: string; html: string } {
-  const greeting = fullName ? `Hi ${fullName.split(" ")[0]},` : "Hi there,";
+  const greeting = fullName ? `Hi ${escapeHtml(fullName.split(" ")[0])},` : "Hi there,";
   const workspaceUrl = PORTAL_URL ? `${PORTAL_URL}/workspace/${productSlug}` : undefined;
 
   const bodyHtml = `
     <p style="margin:0 0 8px; font-size:14px; line-height:1.6; color:#475569;">${greeting}</p>
     <p style="margin:0 0 24px; font-size:14px; line-height:1.6; color:#475569;">
-      <strong>${productName}</strong> is unlocked and ready in your Workspace.
+      <strong>${escapeHtml(productName)}</strong> is unlocked and ready in your Workspace.
     </p>
     ${
       welcomePdfUrl
@@ -46,7 +47,7 @@ export function buildPurchaseConfirmedEmail({
   `;
 
   const html = renderEmailLayout({
-    preheader: `${productName} is unlocked and ready in your Workspace.`,
+    preheader: `${escapeHtml(productName)} is unlocked and ready in your Workspace.`,
     heading: "You're all set",
     bodyHtml,
     cta: workspaceUrl ? { label: "Open My Workspace", url: workspaceUrl } : undefined,

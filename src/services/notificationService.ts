@@ -1,4 +1,12 @@
 import type { TrialUnit } from "@/types/database";
+import { supabase } from "@/services/supabaseClient";
+
+// The server takes the member from this token (never from the body).
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+}
 
 export interface TrialActivatedNotification {
   email: string;
@@ -29,10 +37,11 @@ export interface TrialReviewRequestNotification {
 export const notificationService = {
   async sendTrialActivatedEmail(input: TrialActivatedNotification): Promise<void> {
     try {
+      // Only the product: the server loads the member and the trial itself.
       await fetch("/api/notifications/trial-activated", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
+        headers: await authHeaders(),
+        body: JSON.stringify({ productSlug: input.productSlug }),
       });
     } catch {
       // Best-effort only — see class comment.
@@ -49,8 +58,8 @@ export const notificationService = {
     try {
       await fetch("/api/notifications/trial-review-request", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
+        headers: await authHeaders(),
+        body: JSON.stringify({ productId: input.productId }),
       });
     } catch {
       // Best-effort only — see class comment.
