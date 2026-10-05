@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { requireUser } from "../_lib/requireUser.js";
 import { sendEmail } from "../_lib/email/sendEmail.js";
 import { buildTrialReviewRequestEmail } from "../_lib/email/templates/trialReviewRequest.js";
 import { deriveAccessState } from "../../src/lib/workspaceAccess.js";
 
 const bodySchema = z.object({
-  userId: z.string().uuid(),
   productId: z.string().uuid(),
 });
 
@@ -25,11 +25,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Method not allowed" });
 
   try {
+    // The member comes from the session, never the request body.
+    const caller = await requireUser(req);
+    if (!caller) return res.status(401).json({ ok: false, error: "Sign in to continue." });
     const parsed = bodySchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(422).json({ ok: false, error: "Invalid request", issues: parsed.error.issues });
-    }
-    const { userId, productId } = parsed.data;
+    if (!parsed.success) return res.status(422).json({ ok: false, error: "Invalid request" });
+    const userId = caller.id;
+    const { productId } = parsed.data;
     const supabase = getSupabaseAdmin();
 
     const { data: license, error: licenseError } = await supabase
@@ -81,6 +83,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ ok: true, sent: true, id: result.id });
   } catch (err) {
     console.error("[notifications/trial-review-request] unhandled error:", err);
-    return res.status(500).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
+    return res.status(500).json({ ok: false, error: "Something went wrong." });
   }
 }

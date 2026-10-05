@@ -1,3 +1,4 @@
+import { escapeHtml } from "../escapeHtml.js";
 import { renderEmailLayout } from "../layout.js";
 
 export interface TrialReviewRequestEmailInput {
@@ -16,18 +17,18 @@ export function buildTrialReviewRequestEmail({ fullName, productName }: TrialRev
   subject: string;
   html: string;
 } {
-  const greeting = fullName ? `Hi ${fullName.split(" ")[0]},` : "Hi there,";
+  const greeting = fullName ? `Hi ${escapeHtml(fullName.split(" ")[0])},` : "Hi there,";
   const libraryUrl = PORTAL_URL ? `${PORTAL_URL}/library` : undefined;
 
   const bodyHtml = `
     <p style="margin:0 0 8px; font-size:14px; line-height:1.6; color:#475569;">${greeting}</p>
     <p style="margin:0 0 24px; font-size:14px; line-height:1.6; color:#475569;">
-      Your free trial of <strong>${productName}</strong> has ended. We'd love your feedback — it only takes a minute.
+      Your free trial of <strong>${escapeHtml(productName)}</strong> has ended. We'd love your feedback — it only takes a minute.
     </p>
   `;
 
   const html = renderEmailLayout({
-    preheader: `Your free trial of ${productName} has ended — tell us what you thought.`,
+    preheader: `Your free trial of ${escapeHtml(productName)} has ended — tell us what you thought.`,
     heading: "How was your trial?",
     bodyHtml,
     cta: libraryUrl ? { label: "Leave a Review", url: libraryUrl } : undefined,
