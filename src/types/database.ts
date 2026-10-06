@@ -60,6 +60,17 @@ export type WorkspaceCategoryRow = {
   created_at: string;
 };
 
+/** One section of a Workspace's public outline — portal.get_workspace_outline(). */
+export type WorkspaceOutlineSection = {
+  id: string;
+  number: number | null;
+  type: string;
+  title: string;
+  description: string;
+  icon: string;
+  optional: boolean | null;
+};
+
 export type ProductRow = {
   id: string;
   /** Stable id from BGrowth Studio — the Publishing Engine's upsert key. Null for non-Studio products. */
@@ -90,6 +101,12 @@ export type ProductRow = {
    * for this product — the Viewer falls back to a "coming soon" state.
    */
   content: WorkspaceContent | null;
+  /**
+   * Not a column: the public outline (section titles/descriptions/icons)
+   * productService attaches for visitors without access, who don't receive
+   * `content` (supabase/migrations/0034_workspace_content_access.sql).
+   */
+  outline?: WorkspaceOutlineSection[] | null;
   /** Auto-generated on every publish (see api/_lib/generateWelcomePdf.ts) — never Studio-authored, never "sticky" the way cover_image_url is. Null until the first publish completes. */
   welcome_pdf_url: string | null;
   /** Whether this Workspace costs nothing at all — distinct from is_trial_eligible (a free trial of a paid product). */
@@ -599,6 +616,14 @@ export interface Database {
       delete_draft_product: {
         Args: DeleteDraftProductArgs;
         Returns: void;
+      };
+      get_workspace_content: {
+        Args: { p_product_id: string };
+        Returns: WorkspaceContent | null;
+      };
+      get_workspace_outline: {
+        Args: { p_slug: string };
+        Returns: WorkspaceOutlineSection[];
       };
     };
   };

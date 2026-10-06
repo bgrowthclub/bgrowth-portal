@@ -3,7 +3,7 @@ import { getProductFeatures } from "@/lib/productMarketing";
 import { getWorkspaceIcon } from "@/lib/workspaceIcons";
 
 interface ProductFeaturesProps {
-  product: Pick<ProductRow, "metadata" | "content">;
+  product: Pick<ProductRow, "metadata" | "content" | "outline">;
 }
 
 /**
