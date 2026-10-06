@@ -6,7 +6,7 @@ const BENEFITS = [
   },
   {
     title: "One choice, full access",
-    description: "Your trial Workspace unlocks completely — every module, every feature.",
+    description: "The Workspace you choose for your trial opens completely — every section, every feature.",
     icon: "M12 4v16m8-8H4",
   },
   {
