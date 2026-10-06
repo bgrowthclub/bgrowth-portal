@@ -24,11 +24,12 @@ function readMetadata(product: Pick<ProductRow, "metadata">): ProductMarketingMe
  * behavior; ProductPage/ProductFeatures never need to know which case
  * they're in.
  */
-export function getProductFeatures(product: Pick<ProductRow, "metadata" | "content">): ProductFeatureItem[] {
+export function getProductFeatures(product: Pick<ProductRow, "metadata" | "content" | "outline">): ProductFeatureItem[] {
   const metadata = readMetadata(product);
   if (metadata.features && metadata.features.length > 0) return metadata.features;
-  if (!product.content) return [];
-  return product.content.sections.map((section) => ({
+  // Visitors without access get the public outline instead of content.
+  const sections = product.content?.sections ?? product.outline ?? [];
+  return sections.map((section) => ({
     icon: section.icon,
     title: section.title,
     description: section.description,
