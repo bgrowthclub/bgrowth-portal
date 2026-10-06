@@ -64,6 +64,7 @@ export type WorkspaceCategoryRow = {
 export type WorkspaceOutlineSection = {
   id: string;
   number: number | null;
+  type: string;
   title: string;
   description: string;
   icon: string;

@@ -10,7 +10,7 @@
 --                                       access grant — has_workspace_access)
 --   get_workspace_outline(slug)         the public outline of a published
 --                                       Workspace: each section's id, number,
---                                       title, description, icon, optional —
+--                                       type, title, description, icon, optional —
 --                                       no fields, items, tips or texts
 --
 -- Both are security definer so they can read the column after 0035.
@@ -41,6 +41,7 @@ as $$
       jsonb_build_object(
         'id', s.section->>'id',
         'number', s.section->'number',
+        'type', s.section->>'type',
         'title', coalesce(s.section->>'title', ''),
         'description', coalesce(s.section->>'description', ''),
         'icon', coalesce(s.section->>'icon', ''),
