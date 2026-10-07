@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
 import { FetchErrorState } from "@/components/ui/FetchErrorState";
 import { LicenseRowItem } from "./components/LicenseRow";
+import { EmailUpdatesCard } from "./components/EmailUpdatesCard";
 
 export function ProfilePage() {
   const { user } = useAuth();
@@ -79,6 +80,8 @@ export function ProfilePage() {
           </p>
         )}
       </Card>
+
+      <EmailUpdatesCard />
     </div>
   );
 }
