@@ -270,7 +270,7 @@ export type AccessGrantRow = {
 };
 
 /** Whether a review was submitted after a Trial or after a purchase — kept for future analytics, not read/branched on anywhere today. */
-export type ReviewCreatedFrom = "trial" | "purchase";
+export type ReviewCreatedFrom = "trial" | "purchase" | "access";
 
 /**
  * A member's review of a product — belongs to the product itself, never to
