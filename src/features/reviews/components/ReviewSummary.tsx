@@ -17,9 +17,9 @@ export function ReviewSummary({ productId }: ReviewSummaryProps) {
   const { data: summary, isLoading } = useAsync(() => reviewService.getSummary(productId), [productId]);
 
   if (isLoading) return <Spinner className="h-4 w-4" />;
-  if (!summary || summary.reviewCount === 0) {
-    return <p className="text-sm text-navy-400 dark:text-white/40">No reviews yet.</p>;
-  }
+  // No reviews: ReviewList below already says "No reviews yet." — saying it
+  // here too showed the same sentence twice.
+  if (!summary || summary.reviewCount === 0) return null;
 
   return (
     <div className="flex items-center gap-2">

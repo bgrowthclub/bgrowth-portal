@@ -15,7 +15,7 @@ export const DEFAULT_HOW_IT_WORKS: ProductHowItWorksStep[] = [
   },
   {
     title: "Work Through Your Workspace",
-    description: "Fill in each guided section at your own pace. Your progress saves automatically.",
+    description: "Create a record for each client and fill in the guided sections in any order. Click “Save & Continue” on a section and your answers are saved.",
   },
   {
     title: "Track Your Progress",
