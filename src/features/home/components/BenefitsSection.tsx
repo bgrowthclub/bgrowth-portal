@@ -1,7 +1,7 @@
 const BENEFITS = [
   {
-    title: "Zero commitment",
-    description: "Explore a full Workspace, completely free — no card required, cancel anytime.",
+    title: "Try before you buy",
+    description: "Use a full Workspace free during its trial period — no card required. Buy it only if it's right for you.",
     icon: "M5 13l4 4L19 7",
   },
   {
