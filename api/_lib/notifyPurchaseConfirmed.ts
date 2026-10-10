@@ -1,6 +1,7 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { getSupabaseAdmin } from "./supabaseAdmin.js";
 import { sendEmail } from "./email/sendEmail.js";
-import { buildPurchaseConfirmedEmail } from "./email/templates/purchaseConfirmed.js";
+import { buildBundlePurchasedEmail, buildPurchaseConfirmedEmail } from "./email/templates/purchaseConfirmed.js";
 
 /**
  * Fires the Purchase Confirmation email — the primary onboarding email
@@ -24,12 +25,31 @@ export async function notifyPurchaseConfirmed(
   try {
     const [{ data: user, error: userError }, { data: product, error: productError }] = await Promise.all([
       supabase.from("users").select("email, full_name").eq("id", userId).maybeSingle(),
-      supabase.from("products").select("name, slug, welcome_pdf_url").eq("id", productId).maybeSingle(),
+      supabase.from("products").select("name, slug, welcome_pdf_url, content_type").eq("id", productId).maybeSingle(),
     ]);
     if (userError) throw userError;
     if (productError) throw productError;
     if (!user || !product) {
       console.error("[notifyPurchaseConfirmed] user or product not found", { userId, productId });
+      return;
+    }
+
+    // A bundle (0041, sold on the Website): list the Workspaces it unlocked.
+    if ((product.content_type as string) === "bundle") {
+      // bundle_items isn't in the generated types (Website-owned table).
+      const untyped = supabase as unknown as SupabaseClient;
+      const { data: items, error: itemsError } = await untyped
+        .from("bundle_items")
+        .select("sort_order, products:product_id(name)")
+        .eq("bundle_id", productId)
+        .order("sort_order");
+      if (itemsError) throw itemsError;
+      const names = ((items ?? []) as { products: { name: string } | { name: string }[] | null }[])
+        .map((i) => (Array.isArray(i.products) ? i.products[0]?.name : i.products?.name))
+        .filter((n): n is string => Boolean(n));
+      const bundleEmail = buildBundlePurchasedEmail({ fullName: user.full_name, bundleName: product.name, workspaceNames: names });
+      const sent = await sendEmail({ to: user.email, subject: bundleEmail.subject, html: bundleEmail.html });
+      if (!sent.ok) console.error(`[notifyPurchaseConfirmed] send failed: ${sent.error}`);
       return;
     }
 

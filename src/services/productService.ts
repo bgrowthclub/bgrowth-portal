@@ -1,5 +1,5 @@
 import { supabase } from "./supabaseClient";
-import type { ProductRow, WorkspaceOutlineSection } from "@/types/database";
+import type { ContentType, ProductRow, WorkspaceOutlineSection } from "@/types/database";
 import type { WorkspaceContent } from "@/types/workspaceContent";
 
 /**
@@ -46,12 +46,18 @@ const withContent = (rows: ProductRow[]): Promise<ProductRow[]> =>
  * Trial Selection, and My Library features alike. Keep catalog reads here
  * rather than re-querying `products` ad hoc inside a feature.
  */
+// Bundles (migration 0041) live in products too, but are sold on the
+// Website only and aren't one of this app's content types.
+const BUNDLE = "bundle" as ContentType;
+
 export const productService = {
   async fetchPublished(): Promise<ProductRow[]> {
     const { data, error } = await supabase
       .from("products")
       .select(PRODUCT_COLUMNS)
       .eq("status", "published")
+      // Bundles (0041) are sold on the Website only — never a Workspace here.
+      .neq("content_type", BUNDLE)
       .order("created_at", { ascending: true });
     if (error) throw error;
     return withoutContent(data as ProductRowWithoutContent[] | null);
@@ -115,7 +121,8 @@ export const productService = {
       licensedProductIds.length > 0
         ? query.or(`status.eq.published,id.in.(${licensedProductIds.join(",")})`)
         : query.eq("status", "published");
-    const { data, error } = await query.order("created_at", { ascending: true });
+    // Bundles (0041) are sold on the Website only — never a Workspace here.
+    const { data, error } = await query.neq("content_type", BUNDLE).order("created_at", { ascending: true });
     if (error) throw error;
     return withoutContent(data as ProductRowWithoutContent[] | null);
   },
