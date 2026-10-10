@@ -25,11 +25,14 @@ create table if not exists portal.member_pages (
   highlights jsonb not null default '[]'::jsonb,
   -- [{ "type": "whatsapp|email|instagram|tiktok|youtube|website|other", "label": "...", "url": "..." }]
   links jsonb not null default '[]'::jsonb,
+  -- Language of the page's own labels ('Serviços' / 'Services').
+  language text not null default 'en',
   status text not null default 'draft',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint member_pages_slug_format check (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and length(slug) between 3 and 40),
   constraint member_pages_status check (status in ('draft', 'published')),
+  constraint member_pages_language check (language in ('en', 'pt')),
   constraint member_pages_name_length check (length(display_name) between 1 and 80)
 );
 
