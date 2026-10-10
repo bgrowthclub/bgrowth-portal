@@ -55,3 +55,43 @@ export function buildPurchaseConfirmedEmail({
 
   return { subject: `${productName} is ready in your Workspace`, html };
 }
+
+export interface BundlePurchasedEmailInput {
+  fullName: string | null;
+  bundleName: string;
+  workspaceNames: string[];
+}
+
+// Bundles are sold on the Website (Portal migration 0041), so the button
+// opens the member's Workspaces there.
+const WEBSITE_URL = (process.env.WEBSITE_PUBLIC_URL || "https://bgrowth.app").replace(/\/$/, "");
+
+export function buildBundlePurchasedEmail({
+  fullName,
+  bundleName,
+  workspaceNames,
+}: BundlePurchasedEmailInput): { subject: string; html: string } {
+  const greeting = fullName ? `Hi ${escapeHtml(fullName.split(" ")[0])},` : "Hi there,";
+  const list = workspaceNames.length
+    ? `<ul style="margin:0 0 24px; padding-left:20px; font-size:14px; line-height:1.8; color:#475569;">${workspaceNames
+        .map((name) => `<li>${escapeHtml(name)}</li>`)
+        .join("")}</ul>`
+    : "";
+
+  const bodyHtml = `
+    <p style="margin:0 0 8px; font-size:14px; line-height:1.6; color:#475569;">${greeting}</p>
+    <p style="margin:0 0 16px; font-size:14px; line-height:1.6; color:#475569;">
+      Thank you for buying <strong>${escapeHtml(bundleName)}</strong>. These Workspaces are now yours, for as long as you want:
+    </p>
+    ${list}
+  `;
+
+  const html = renderEmailLayout({
+    preheader: `Your ${escapeHtml(bundleName)} Workspaces are unlocked and ready.`,
+    heading: "You're all set",
+    bodyHtml,
+    cta: { label: "Open My Workspaces", url: `${WEBSITE_URL}/platform/my-systems` },
+  });
+
+  return { subject: `${bundleName} is ready in your Workspaces`, html };
+}
