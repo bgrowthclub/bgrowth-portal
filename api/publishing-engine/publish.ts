@@ -86,6 +86,9 @@ const publishRequestSchema = z.object({
   contentType: z.enum(CONTENT_TYPES as [ContentType, ...ContentType[]]).default("workspace"),
   contentVersion: z.number().int().positive().default(1),
   categorySlug: z.string().nullable().optional(),
+  // The product's tags (migration 0048). Omitted = leave its tags as they
+  // are (e.g. set in the Website's Admin); [] = no tags.
+  tags: z.array(z.string().trim().min(1).max(60)).max(20).optional(),
   metadata: z.record(z.unknown()).default({}),
   content: z.unknown(),
   status: z.enum(STATUSES as [PublicationStatus, ...PublicationStatus[]]),
@@ -110,6 +113,46 @@ const publishRequestSchema = z.object({
   // checkout endpoint falls back to dynamic price_data from priceCents/currency.
   stripePriceId: z.string().nullable().optional(),
 });
+
+// Same rule as portal.tag_slug() (migration 0048) and the Website's
+// api/admin.ts: lower case, no accents, words joined by "-".
+function tagSlug(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+// Replace a product's tags with these names, reusing tags from the list.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function syncProductTags(supabase: any, productId: string, names: string[]) {
+  const wanted = new Map<string, string>();
+  for (const name of names) {
+    const slug = tagSlug(name);
+    if (slug && !wanted.has(slug)) wanted.set(slug, name.trim());
+  }
+  const slugs = [...wanted.keys()];
+  if (slugs.length) {
+    const { error: upsertError } = await supabase
+      .from("tags")
+      .upsert(slugs.map((slug) => ({ slug, name: wanted.get(slug), source: "studio" })), { onConflict: "slug", ignoreDuplicates: true });
+    if (upsertError) throw upsertError;
+  }
+  const { data: rows, error: readError } = slugs.length
+    ? await supabase.from("tags").select("id").in("slug", slugs)
+    : { data: [], error: null };
+  if (readError) throw readError;
+  const { error: clearError } = await supabase.from("product_tags").delete().eq("product_id", productId);
+  if (clearError) throw clearError;
+  if (rows?.length) {
+    const { error: linkError } = await supabase
+      .from("product_tags")
+      .insert(rows.map((r: { id: string }) => ({ product_id: productId, tag_id: r.id })));
+    if (linkError) throw linkError;
+  }
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -285,6 +328,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (error) throw error;
+
+    // Tags (migration 0048): the same list the Website's Admin manages — a
+    // name that already exists (same key: case/accents/spaces ignored) is
+    // reused, a new one joins the list. Best-effort: the publish above
+    // already succeeded.
+    if (payload.tags) {
+      try {
+        await syncProductTags(supabase, product.id, payload.tags);
+      } catch (tagError) {
+        console.error("[publishing-engine/publish] tags not saved:", tagError);
+      }
+    }
 
     // The BGrowth Website (bgrowth.app) reads the same `portal` schema as the
     // Portal, so a Portal publish is live on the Website too. Record that in
