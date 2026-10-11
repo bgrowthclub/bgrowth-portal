@@ -1,5 +1,5 @@
 import { supabase } from "./supabaseClient";
-import type { ContentType, ProductRow, WorkspaceOutlineSection } from "@/types/database";
+import type { ProductRow, WorkspaceOutlineSection } from "@/types/database";
 import type { WorkspaceContent } from "@/types/workspaceContent";
 
 /**
@@ -47,8 +47,9 @@ const withContent = (rows: ProductRow[]): Promise<ProductRow[]> =>
  * rather than re-querying `products` ad hoc inside a feature.
  */
 // Bundles (migration 0041) live in products too, but are sold on the
-// Website only and aren't one of this app's content types.
-const BUNDLE = "bundle" as ContentType;
+// Website only and aren't one of this app's content types. Calculators are
+// sold on the Website only too (decided 10/10/2026).
+const WEBSITE_ONLY = "(bundle,calculator)";
 
 export const productService = {
   async fetchPublished(): Promise<ProductRow[]> {
@@ -57,7 +58,7 @@ export const productService = {
       .select(PRODUCT_COLUMNS)
       .eq("status", "published")
       // Bundles (0041) are sold on the Website only — never a Workspace here.
-      .neq("content_type", BUNDLE)
+      .not("content_type", "in", WEBSITE_ONLY)
       .order("created_at", { ascending: true });
     if (error) throw error;
     return withoutContent(data as ProductRowWithoutContent[] | null);
@@ -122,7 +123,7 @@ export const productService = {
         ? query.or(`status.eq.published,id.in.(${licensedProductIds.join(",")})`)
         : query.eq("status", "published");
     // Bundles (0041) are sold on the Website only — never a Workspace here.
-    const { data, error } = await query.neq("content_type", BUNDLE).order("created_at", { ascending: true });
+    const { data, error } = await query.not("content_type", "in", WEBSITE_ONLY).order("created_at", { ascending: true });
     if (error) throw error;
     return withoutContent(data as ProductRowWithoutContent[] | null);
   },

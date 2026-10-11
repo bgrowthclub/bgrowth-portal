@@ -58,7 +58,8 @@ const KEYSET_SORTS: Record<Exclude<CatalogSortOption, "relevance">, { column: Ke
 const DEFAULT_PAGE_SIZE = 24;
 
 function baseSelect() {
-  return supabase.from("catalog_index").select("*");
+  // Calculators are sold on the Website only (decided 10/10/2026).
+  return supabase.from("catalog_index").select("*").neq("content_type", "calculator");
 }
 
 type CatalogQuery = ReturnType<typeof baseSelect>;
