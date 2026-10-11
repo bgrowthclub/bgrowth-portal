@@ -1,14 +1,15 @@
 import { Sparkles, Gift, Zap, FileText } from "lucide-react";
 import type { ProductRow } from "@/types/database";
+import { productNoun } from "@/lib/contentType";
 
 interface ProductTrustBadgesProps {
-  product: Pick<ProductRow, "is_trial_eligible">;
+  product: Pick<ProductRow, "is_trial_eligible" | "content_type">;
 }
 
 /** Universal reassurance badges, not Studio-authored content — "Trial Available" is the only one conditioned on product data. */
 export function ProductTrustBadges({ product }: ProductTrustBadgesProps) {
   const badges = [
-    { icon: Sparkles, label: "Interactive Workspace", show: true },
+    { icon: Sparkles, label: `Interactive ${productNoun(product.content_type)}`, show: true },
     { icon: Gift, label: "Trial Available", show: product.is_trial_eligible },
     { icon: Zap, label: "Instant Access", show: true },
     { icon: FileText, label: "Digital Product", show: true },

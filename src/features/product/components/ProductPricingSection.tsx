@@ -8,6 +8,7 @@ import { BuyNowButton } from "@/components/ui/BuyNowButton";
 import { formatTrialSentence } from "@/lib/trial";
 import { formatPrice } from "@/lib/pricing";
 import { setPendingAuthRedirect } from "@/lib/pendingRedirect";
+import { productNoun } from "@/lib/contentType";
 
 interface ProductPricingSectionProps {
   product: ProductRow;
@@ -67,9 +68,9 @@ export function ProductPricingSection({ product, isAuthenticated, accessState, h
     return (
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-navy-100/60 bg-white/95 shadow-soft-lg backdrop-blur dark:border-white/10 dark:bg-navy-900/95">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
-          <p className="text-sm font-semibold text-navy-900 dark:text-white">You own this Workspace</p>
+          <p className="text-sm font-semibold text-navy-900 dark:text-white">You own this {productNoun(product.content_type)}</p>
           <Link to={`/workspace/${product.slug}`}>
-            <Button size="lg">Open Workspace</Button>
+            <Button size="lg">Open {productNoun(product.content_type)}</Button>
           </Link>
         </div>
       </div>

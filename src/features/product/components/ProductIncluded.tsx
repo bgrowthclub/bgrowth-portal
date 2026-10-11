@@ -1,9 +1,10 @@
 import { Check } from "lucide-react";
 import type { ProductRow } from "@/types/database";
 import { getProductIncluded } from "@/lib/productMarketing";
+import { productNoun } from "@/lib/contentType";
 
 interface ProductIncludedProps {
-  product: Pick<ProductRow, "metadata">;
+  product: Pick<ProductRow, "metadata" | "content_type">;
 }
 
 /** Omitted entirely until Studio publishes metadata.included — no auto-derived fallback (Features already covers that role). */
@@ -17,7 +18,7 @@ export function ProductIncluded({ product }: ProductIncludedProps) {
         <div className="text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-primary">Included</span>
           <h2 className="mt-3 text-3xl font-bold text-navy-900 dark:text-white sm:text-4xl">
-            Included in this Workspace
+            Included in this {productNoun(product.content_type)}
           </h2>
         </div>
         <ul className="mx-auto mt-10 grid max-w-2xl gap-3 sm:grid-cols-2">

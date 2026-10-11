@@ -47,14 +47,35 @@ const assetInputSchema = z.object({
 });
 
 /**
- * Only "workspace" has a real content schema today (see
- * src/schemas/workspaceContent.schema.ts). Publishing any other content_type
- * is rejected with a clear error rather than silently accepted as opaque
- * JSON — the moment a second engine (e.g. Planner) has a real schema, add
- * its branch here.
+ * "workspace" has the full schema (src/schemas/workspaceContent.schema.ts);
+ * "calculator" (Studio's Calculator Engine, sold on the Website and here) checks
+ * the parts the calculator screen runs on and keeps the rest as sent.
+ * Any other content_type is rejected with a clear error rather than
+ * silently accepted as opaque JSON.
  */
+const calculatorContentSchema = z
+  .object({
+    productId: z.string().min(1),
+    name: z.string().min(1),
+    sections: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1),
+            title: z.string(),
+            fields: z.array(z.object({ id: z.string().min(1), label: z.string(), type: z.string() }).passthrough()),
+          })
+          .passthrough(),
+      )
+      .min(1),
+    formulas: z.array(z.object({ id: z.string().min(1), expression: z.string(), variables: z.array(z.string()) }).passthrough()),
+    results: z.array(z.object({ id: z.string().min(1), label: z.string(), formulaId: z.string().min(1) }).passthrough()).min(1),
+  })
+  .passthrough();
+
 const contentSchemasByType: Partial<Record<ContentType, z.ZodTypeAny>> = {
   workspace: workspaceContentSchema,
+  calculator: calculatorContentSchema,
 };
 
 const publishRequestSchema = z.object({
@@ -162,7 +183,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let welcomePdfUrl: string | null = null;
     let welcomePdfStoragePath: string | null = null;
     let welcomePdfSizeBytes: number | null = null;
-    try {
+    // The Welcome Guide is a Workspace thing — a calculator has none.
+    if (payload.contentType === "workspace") try {
       // Mirrors publish_product()'s own version computation exactly (see
       // supabase/migrations/0010_welcome_pdf.sql: `current_version + 1`,
       // or 1 for a first-ever publish) so the Welcome PDF's version stamp
@@ -177,8 +199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (existingProductError) throw existingProductError;
       const workspaceVersion = (existingProduct?.current_version ?? 0) + 1;
 
-      // Only "workspace" ever reaches this point (see contentSchemasByType
-      // above — any other content_type already returned 501), so
+      // Only "workspace" reaches this point (guarded above), so
       // contentResult.data is safe to treat as WorkspaceContent here.
       const welcomePdfBytes = await generateWelcomePdf({
         productName: payload.name,

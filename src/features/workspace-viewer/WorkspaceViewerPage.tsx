@@ -12,6 +12,9 @@ import { FetchErrorState } from "@/components/ui/FetchErrorState";
 import { WorkspaceViewerLayout } from "./components/WorkspaceViewerLayout";
 import { DocumentWorkspaceRenderer } from "./document-v1/DocumentWorkspaceRenderer";
 import { NewFillButton } from "./components/NewFillButton";
+import { CalculatorRunner } from "@/features/calculator/components/CalculatorRunner";
+import { isCalculatorConfig } from "@/features/calculator/types";
+import type { CalculatorSavedData } from "@/features/calculator/types";
 import type { WorkspaceInstanceRow } from "@/types/database";
 import type { WorkspaceData } from "@/types/workspaceContent";
 
@@ -161,7 +164,16 @@ export function WorkspaceViewerPage() {
               ) : undefined
             }
           >
-            {product.content ? (
+            {/* A Studio calculator (content_type 'calculator') runs here with the
+                same documents as a Workspace — a saved calculation is a
+                workspace_instances row holding {kind:'calculator', values, notes}. */}
+            {product.content_type === "calculator" && isCalculatorConfig(product.content) ? (
+              <CalculatorRunner
+                config={product.content}
+                initialData={instance?.data as Partial<CalculatorSavedData> | undefined}
+                onSave={instance ? (data) => handleSaveInstance(data as unknown as WorkspaceData) : undefined}
+              />
+            ) : product.content ? (
               <DocumentWorkspaceRenderer
                 content={product.content}
                 initialData={instance?.data as WorkspaceData | undefined}

@@ -4,6 +4,9 @@ import { ArrowRight, MoreVertical } from "lucide-react";
 import type { WorkspaceInstanceRow } from "@/types/database";
 import type { WorkspaceContent, WorkspaceData } from "@/types/workspaceContent";
 import { useWorkspaceProgress } from "@/features/workspace-viewer/hooks/useWorkspaceProgress";
+import { isCalculatorConfig } from "@/features/calculator/types";
+import type { CalculatorSavedData } from "@/features/calculator/types";
+import { buildDefaultValues, calcCompletion } from "@/features/calculator/formulaEngine";
 
 // Stable module-level fallback (never recreated per render) so the progress
 // hook below always has something to call — a Workspace with no published
@@ -54,7 +57,18 @@ export function SavedChecklistCard({
   showWorkspaceLabel = true,
   content,
 }: SavedChecklistCardProps) {
-  const progress = useWorkspaceProgress(content ?? EMPTY_CONTENT, (instance.data as WorkspaceData) ?? {});
+  const workspaceProgress = useWorkspaceProgress(content ?? EMPTY_CONTENT, (instance.data as WorkspaceData) ?? {});
+  // A saved calculation counts the calculator's required fields filled in
+  // (the calculator's own rule, same as on the Website).
+  const calculator = isCalculatorConfig(content) ? content : null;
+  const progress = calculator
+    ? {
+        percent: calcCompletion(calculator, {
+          ...buildDefaultValues(calculator),
+          ...((instance.data as Partial<CalculatorSavedData> | null)?.values ?? {}),
+        }),
+      }
+    : workspaceProgress;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
