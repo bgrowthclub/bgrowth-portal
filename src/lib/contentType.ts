@@ -20,3 +20,8 @@ export const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
 export function formatContentType(contentType: ContentType): string {
   return CONTENT_TYPE_LABELS[contentType] ?? contentType;
 }
+
+/** What product-page copy calls this product ("Open Calculator", "Included in this Workspace"). Only calculators differ today. */
+export function productNoun(contentType: ContentType): string {
+  return contentType === "calculator" ? "Calculator" : "Workspace";
+}

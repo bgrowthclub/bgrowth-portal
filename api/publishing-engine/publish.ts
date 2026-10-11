@@ -48,8 +48,8 @@ const assetInputSchema = z.object({
 
 /**
  * "workspace" has the full schema (src/schemas/workspaceContent.schema.ts);
- * "calculator" (Studio's Calculator Engine, sold on the Website only) checks
- * the parts the Website's calculator runs on and keeps the rest as sent.
+ * "calculator" (Studio's Calculator Engine, sold on the Website and here) checks
+ * the parts the calculator screen runs on and keeps the rest as sent.
  * Any other content_type is rejected with a clear error rather than
  * silently accepted as opaque JSON.
  */

@@ -1,16 +1,19 @@
 import type { ProductRow } from "@/types/database";
 import type { SectionConfig } from "@/types/workspaceContent";
 import { getWorkspaceIcon } from "@/lib/workspaceIcons";
+import { productNoun } from "@/lib/contentType";
 
 interface ProductWorkspacePreviewProps {
-  product: Pick<ProductRow, "content">;
+  product: Pick<ProductRow, "content" | "content_type">;
 }
 
 /** Field/checklist item labels for one section — the closest thing to a "table of contents" without exposing any filled-in customer data (there is none here; this reads only the published template, never workspace_instances). */
 function getSectionItemLabels(section: SectionConfig): string[] {
   if (section.type === "form") return section.fields.map((field) => field.label);
   if (section.type === "checklist" || section.type === "outcome") return section.items.map((item) => item.label);
-  return [];
+  // A calculator's steps (no section type) list their inputs.
+  const fields = (section as { fields?: { label: string }[] }).fields;
+  return Array.isArray(fields) ? fields.map((field) => field.label) : [];
 }
 
 /**
@@ -35,7 +38,7 @@ export function ProductWorkspacePreview({ product }: ProductWorkspacePreviewProp
         <div className="text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-primary">What&apos;s Inside</span>
           <h2 className="mt-3 text-3xl font-bold text-navy-900 dark:text-white sm:text-4xl">
-            Every section of this Workspace
+            Every section of this {productNoun(product.content_type)}
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-navy-500 dark:text-white/50">
             See exactly what you&apos;ll work through — no account needed to look around.
