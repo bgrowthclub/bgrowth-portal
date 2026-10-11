@@ -1,0 +1,375 @@
+-- 0048 — Tags: one managed list for products (and, later, articles).
+--
+-- A tag is a short label ("notary", "beginner", "Canva") a product can have
+-- several of; the category is its single drawer. One list for everyone:
+-- the Website's Admin → Catalog → Tags (create, rename, merge, delete, and
+-- each product's tags), BGrowth Studio's publish screens (pick from the
+-- list or add a new one) and the Website's catalog (filter and search).
+--
+-- No duplicates: every tag has a key (portal.tag_slug: lower case, no
+-- accents, words joined by "-"), so "Notary", "notary " and "NOTARY" are
+-- one tag whoever creates it. Different spellings ("notary-public" vs
+-- "notary") are joined by hand in Admin → Tags.
+--
+-- A product's tags live in portal.product_tags (not in products.metadata,
+-- which a publish rewrites). Everyone can read; writes go through the
+-- Website's server and the Portal's publish endpoint (service role).
+--
+-- Seeded with the 289 tags of the old Wix blog (benterprises.biz — 9
+-- sentence fragments left out) and any tags products already carry in
+-- metadata.tags.
+
+create or replace function portal.tag_slug(p_name text)
+returns text
+language sql
+immutable
+as $$
+  select trim(both '-' from regexp_replace(
+    lower(translate(coalesce(p_name, ''),
+      'ÁÀÂÃÄÅáàâãäåÉÈÊËéèêëÍÌÎÏíìîïÓÒÔÕÖóòôõöÚÙÛÜúùûüÇçÑñ',
+      'AAAAAAaaaaaaEEEEeeeeIIIIiiiiOOOOOoooooUUUUuuuuCcNn')),
+    '[^a-z0-9]+', '-', 'g'))
+$$;
+
+create table if not exists portal.tags (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  -- Where it came from first: 'admin', 'studio' or 'wix'.
+  source text not null default 'admin',
+  created_at timestamptz not null default now(),
+  constraint tags_name check (length(trim(name)) between 1 and 60),
+  constraint tags_slug check (slug <> '' and slug = portal.tag_slug(slug))
+);
+
+create table if not exists portal.product_tags (
+  product_id uuid not null references portal.products(id) on delete cascade,
+  tag_id uuid not null references portal.tags(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (product_id, tag_id)
+);
+
+create index if not exists product_tags_tag_idx on portal.product_tags (tag_id);
+
+alter table portal.tags enable row level security;
+alter table portal.product_tags enable row level security;
+
+drop policy if exists "Anyone can read tags" on portal.tags;
+create policy "Anyone can read tags" on portal.tags for select to anon, authenticated using (true);
+drop policy if exists "Anyone can read product tags" on portal.product_tags;
+create policy "Anyone can read product tags" on portal.product_tags for select to anon, authenticated using (true);
+
+revoke all on portal.tags, portal.product_tags from anon, authenticated;
+grant select on portal.tags, portal.product_tags to anon, authenticated;
+grant select, insert, update, delete on portal.tags, portal.product_tags to service_role;
+
+-- The tags of the old Wix blog.
+insert into portal.tags (name, slug, source)
+select v.name, portal.tag_slug(v.name), 'wix'
+from (values
+  ('Project management'),
+  ('customer communication'),
+  ('notary best practices'),
+  ('documentos EUA'),
+  ('customer service'),
+  ('business finances'),
+  ('business taxes'),
+  ('tax preparation'),
+  ('business bookkeeping'),
+  ('notary training'),
+  ('notary education'),
+  ('notary journal'),
+  ('notary recordkeeping'),
+  ('digital marketing'),
+  ('small business marketing'),
+  ('sales communication'),
+  ('project planning'),
+  ('become a notary'),
+  ('acknowledgment certificate'),
+  ('notarial acts'),
+  ('jurat certificate'),
+  ('notary ethics'),
+  ('notary professionalism'),
+  ('notary career'),
+  ('chegando nos EUA'),
+  ('primeiro mês nos EUA'),
+  ('imigração EUA'),
+  ('brasileiros nos EUA'),
+  ('conta bancária EUA'),
+  ('brasileiros EUA'),
+  ('carteira de motorista EUA'),
+  ('SSN'),
+  ('income opportunities'),
+  ('professional development'),
+  ('side hustle ideas'),
+  ('workforce skills'),
+  ('careers for immigrants'),
+  ('job market trends'),
+  ('entrepreneurship'),
+  ('job flexibility'),
+  ('career advice'),
+  ('future careers'),
+  ('career growth'),
+  ('career change'),
+  ('jobs for adults'),
+  ('career path planning'),
+  ('career transition'),
+  ('career change at 40'),
+  ('transferable skills'),
+  ('choosing a career'),
+  ('starting over career'),
+  ('business opportunities'),
+  ('customer journey'),
+  ('customer experience'),
+  ('customer'),
+  ('difficult customer conversations'),
+  ('handling customer complaints'),
+  ('customer service skills'),
+  ('business budget'),
+  ('budgeting for business'),
+  ('financial planning'),
+  ('small business budget'),
+  ('business communication'),
+  ('communication standards'),
+  ('professional communication'),
+  ('business professionalism'),
+  ('small business taxes'),
+  ('tax records'),
+  ('cash flow'),
+  ('business cash flow'),
+  ('cash flow management'),
+  ('money management'),
+  ('business routine'),
+  ('daily business operations'),
+  ('business workflow'),
+  ('daily operations'),
+  ('business productivity'),
+  ('business efficiency'),
+  ('improve productivity'),
+  ('business optimization'),
+  ('operational efficiency'),
+  ('process improvement'),
+  ('business continuity'),
+  ('business risk management'),
+  ('business emergency planning'),
+  ('business preparedness'),
+  ('small business resilience'),
+  ('start a business'),
+  ('business setup'),
+  ('how to start a business'),
+  ('business planning'),
+  ('small business startup'),
+  ('notary signing agent training'),
+  ('best notary course'),
+  ('notary education providers'),
+  ('notarial services'),
+  ('types of notarizations'),
+  ('common notarial acts'),
+  ('acknowledgment'),
+  ('jurat'),
+  ('signature witnessing'),
+  ('notary record book'),
+  ('notary journal entries'),
+  ('notary public journal'),
+  ('business structure'),
+  ('sole proprietorship'),
+  ('LLC'),
+  ('corporation'),
+  ('partnership'),
+  ('business entity'),
+  ('business branding'),
+  ('professional brand'),
+  ('brand identity'),
+  ('business image'),
+  ('branding for small business'),
+  ('online presence'),
+  ('business website'),
+  ('online business'),
+  ('business social media'),
+  ('local business marketing'),
+  ('marketing strategy'),
+  ('marketing plan'),
+  ('marketing for beginners'),
+  ('customer acquisition'),
+  ('ideal customer'),
+  ('target audience'),
+  ('customer profile'),
+  ('customer research'),
+  ('target market'),
+  ('marketing channels'),
+  ('marketing platforms'),
+  ('advertising channels'),
+  ('customer reviews'),
+  ('online reviews'),
+  ('business reputation'),
+  ('social proof'),
+  ('review marketing'),
+  ('customer testimonials'),
+  ('sales process'),
+  ('sales funnel'),
+  ('sales strategy'),
+  ('customer conversion'),
+  ('sales pipeline'),
+  ('small business sales'),
+  ('customer psychology'),
+  ('why customers buy'),
+  ('buying decisions'),
+  ('customer behavior'),
+  ('sales psychology'),
+  ('consumer behavior'),
+  ('sales objections'),
+  ('handling objections'),
+  ('closing sales'),
+  ('customer concerns'),
+  ('sales skills'),
+  ('sales follow up'),
+  ('customer follow up'),
+  ('customer relationships'),
+  ('project organization'),
+  ('business projects'),
+  ('project timeline'),
+  ('project scheduling'),
+  ('project deadlines'),
+  ('project risk'),
+  ('risk management'),
+  ('project closure'),
+  ('project completion'),
+  ('closing a project'),
+  ('notary equipment'),
+  ('notary supplies'),
+  ('notary tools'),
+  ('mobile notary equipment'),
+  ('state notary requirements'),
+  ('notary laws'),
+  ('notary commission requirements'),
+  ('notary regulations'),
+  ('personal appearance notary'),
+  ('what is personal appearance'),
+  ('notary personal appearance requirement'),
+  ('signer must appear before notary'),
+  ('acceptable identification for notary'),
+  ('notary identification requirements'),
+  ('acceptable forms of identification'),
+  ('verify signer identity'),
+  ('notary ID requirements'),
+  ('acknowledgment notary'),
+  ('notary acknowledgment'),
+  ('what is an acknowledgment'),
+  ('jurat notary'),
+  ('notary jurat'),
+  ('notarial certificate'),
+  ('notary certificate'),
+  ('notary public certificate'),
+  ('ethical notarization'),
+  ('notary responsibilities'),
+  ('notary fraud prevention'),
+  ('how notaries prevent fraud'),
+  ('notary identity verification'),
+  ('document fraud'),
+  ('notary public responsibilities'),
+  ('notary conflict of interest'),
+  ('conflicts of interest for notaries'),
+  ('notary impartiality'),
+  ('notary compliance'),
+  ('credible witness notary'),
+  ('credible witness identification'),
+  ('notary credible witness'),
+  ('verifying identity'),
+  ('notary identification methods'),
+  ('notary journal best practices'),
+  ('notary oath'),
+  ('notary affirmation'),
+  ('oath vs affirmation'),
+  ('administering an oath'),
+  ('notary advertising'),
+  ('notary marketing'),
+  ('advertise notary services'),
+  ('ethical notary marketing'),
+  ('notary fees'),
+  ('notary service charges'),
+  ('notary pricing'),
+  ('mobile notary fees'),
+  ('travel fees notary'),
+  ('notary technology'),
+  ('technology for notaries'),
+  ('modern notary tools'),
+  ('mobile notary technology'),
+  ('remote online notarization'),
+  ('RON notary'),
+  ('online notary'),
+  ('remote notarization'),
+  ('electronic notarization'),
+  ('should I become a notary'),
+  ('notary self assessment'),
+  ('notary profession'),
+  ('common notary mistakes'),
+  ('notary errors'),
+  ('notary public mistakes'),
+  ('notary tips'),
+  ('mobile notary'),
+  ('mobile notary business'),
+  ('become a mobile notary'),
+  ('notary business'),
+  ('mobile notary workspace'),
+  ('mobile notary supplies'),
+  ('mobile notary office'),
+  ('mobile office guide'),
+  ('notary customer service'),
+  ('notary public customer service'),
+  ('customer satisfaction'),
+  ('notary confidence'),
+  ('professional notary'),
+  ('new notary tips'),
+  ('first notary appointment'),
+  ('new notary guide'),
+  ('notary checklist'),
+  ('notary public tips'),
+  ('notary continuing education'),
+  ('notary courses'),
+  ('notary career paths'),
+  ('notary career opportunities'),
+  ('general notary services'),
+  ('notary specialization'),
+  ('cleaning appointment'),
+  ('cleaning business'),
+  ('cleaning service checklist'),
+  ('cleaning appointment preparation'),
+  ('tax business'),
+  ('learn portuguese'),
+  ('portuguese'),
+  ('new language'),
+  ('learning portuguese'),
+  ('dicas de inglês'),
+  ('melhorar inglês EUA'),
+  ('inglês nos EUA'),
+  ('aprender inglês rápido'),
+  ('inglês para brasileiros'),
+  ('set up a business'),
+  ('new business checklist'),
+  ('business naming'),
+  ('business naming best practices'),
+  ('company name ideas'),
+  ('choosing a business name'),
+  ('what influences buying behavior'),
+  ('build stronger relationships'),
+  ('budget'),
+  ('notary business essentials'),
+  ('notary records'),
+  ('loan signing agent')
+) as v(name)
+where portal.tag_slug(v.name) <> ''
+on conflict (slug) do nothing;
+
+-- Tags products already carry (metadata.tags), linked to the list.
+insert into portal.tags (name, slug, source)
+select distinct on (portal.tag_slug(t.value #>> '{}')) trim(t.value #>> '{}'), portal.tag_slug(t.value #>> '{}'), 'studio'
+from portal.products p, jsonb_array_elements(case when jsonb_typeof(p.metadata->'tags') = 'array' then p.metadata->'tags' else '[]'::jsonb end) t
+where portal.tag_slug(t.value #>> '{}') <> ''
+on conflict (slug) do nothing;
+
+insert into portal.product_tags (product_id, tag_id)
+select distinct p.id, tg.id
+from portal.products p
+cross join lateral jsonb_array_elements(case when jsonb_typeof(p.metadata->'tags') = 'array' then p.metadata->'tags' else '[]'::jsonb end) t
+join portal.tags tg on tg.slug = portal.tag_slug(t.value #>> '{}')
+on conflict do nothing;
