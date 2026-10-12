@@ -79,6 +79,8 @@ export type ProductRow = {
   name: string;
   short_description: string;
   cover_image_url: string | null;
+  /** Product page gallery (migration 0050): { images: string[]; video: { kind, url } | null }. Set by the publish endpoint. */
+  gallery?: { images: string[]; video: { kind: "link" | "file"; url: string } | null } | Record<string, never>;
   category_id: string | null;
   app_url: string | null;
   /** Whether this Workspace offers a trial at all — "trialEnabled" in product terms. */
