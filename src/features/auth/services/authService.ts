@@ -1,5 +1,6 @@
 import { isAuthApiError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabaseClient";
+import { getCaptchaToken } from "@/lib/captcha";
 
 export interface SignUpInput {
   email: string;
@@ -35,12 +36,15 @@ export const authService = {
    * still throws and is treated as a genuine failure.
    */
   async signUp({ email, password, fullName }: SignUpInput): Promise<SignUpResult> {
+    // Bot protection (Turnstile) — invisible unless Cloudflare asks for a click.
+    const captchaToken = await getCaptchaToken("signup");
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: fullName },
         emailRedirectTo: `${window.location.origin}/verify-email`,
+        captchaToken,
       },
     });
     if (error) {
@@ -53,7 +57,8 @@ export const authService = {
   },
 
   async signIn({ email, password }: SignInInput) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const captchaToken = await getCaptchaToken("login");
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } });
     if (error) throw error;
     return data;
   },
@@ -72,8 +77,10 @@ export const authService = {
   },
 
   async requestPasswordReset(email: string) {
+    const captchaToken = await getCaptchaToken("reset");
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
+      captchaToken,
     });
     if (error) throw error;
   },
@@ -87,7 +94,7 @@ export const authService = {
     const { error } = await supabase.auth.resend({
       type: "signup",
       email,
-      options: { emailRedirectTo: `${window.location.origin}/verify-email` },
+      options: { emailRedirectTo: `${window.location.origin}/verify-email`, captchaToken: await getCaptchaToken("resend") },
     });
     if (error) throw error;
   },
