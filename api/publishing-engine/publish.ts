@@ -73,9 +73,34 @@ const calculatorContentSchema = z
   })
   .passthrough();
 
+/**
+ * "pdf" — a Download (Studio → Downloads, sold on the Website only): one or
+ * more files from the Studio's File Library (portal.library_files, private
+ * bucket, migration 0049), optional Canva links and instructions. The files
+ * themselves never travel here; buyers get a short signed link from the
+ * Website after it checks their access.
+ */
+const pdfContentSchema = z.object({
+  kind: z.literal("download"),
+  files: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        name: z.string().min(1).max(200),
+        sizeBytes: z.number().int().nonnegative(),
+        mimeType: z.string().min(1),
+      }),
+    )
+    .min(1)
+    .max(30),
+  links: z.array(z.object({ label: z.string().trim().min(1).max(120), url: z.string().url().startsWith("https://") })).max(20).default([]),
+  instructions: z.string().max(20000).default(""),
+});
+
 const contentSchemasByType: Partial<Record<ContentType, z.ZodTypeAny>> = {
   workspace: workspaceContentSchema,
   calculator: calculatorContentSchema,
+  pdf: pdfContentSchema,
 };
 
 const publishRequestSchema = z.object({
