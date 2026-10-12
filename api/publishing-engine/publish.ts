@@ -89,6 +89,13 @@ const publishRequestSchema = z.object({
   // The product's tags (migration 0048). Omitted = leave its tags as they
   // are (e.g. set in the Website's Admin); [] = no tags.
   tags: z.array(z.string().trim().min(1).max(60)).max(20).optional(),
+  // Product page gallery (migration 0050). Omitted = keep the current one.
+  gallery: z
+    .object({
+      images: z.array(z.string().url().startsWith("https://")).max(6),
+      video: z.object({ kind: z.enum(["link", "file"]), url: z.string().url().startsWith("https://") }).nullable(),
+    })
+    .optional(),
   metadata: z.record(z.unknown()).default({}),
   content: z.unknown(),
   status: z.enum(STATUSES as [PublicationStatus, ...PublicationStatus[]]),
@@ -339,6 +346,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       } catch (tagError) {
         console.error("[publishing-engine/publish] tags not saved:", tagError);
       }
+    }
+
+    // Gallery (migration 0050) — same best-effort rule as the tags.
+    if (payload.gallery) {
+      const { error: galleryError } = await supabase
+        .from("products")
+        .update({ gallery: payload.gallery })
+        .eq("id", product.id);
+      if (galleryError) console.error("[publishing-engine/publish] gallery not saved:", galleryError);
     }
 
     // The BGrowth Website (bgrowth.app) reads the same `portal` schema as the
