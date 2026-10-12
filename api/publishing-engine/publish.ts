@@ -375,7 +375,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Gallery (migration 0050) — same best-effort rule as the tags.
     if (payload.gallery) {
-      const { error: galleryError } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- same untyped access as syncProductTags
+      const { error: galleryError } = await (supabase as any)
         .from("products")
         .update({ gallery: payload.gallery })
         .eq("id", product.id);
