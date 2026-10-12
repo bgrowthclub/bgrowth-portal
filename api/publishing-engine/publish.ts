@@ -128,6 +128,9 @@ const publishRequestSchema = z.object({
     })
     .optional(),
   metadata: z.record(z.unknown()).default({}),
+  // Release flow (migration 0051): with status "approved", the date it goes
+  // on sale by itself (daily job). null = clear the date. Omitted = keep it.
+  scheduledPublishAt: z.string().datetime({ offset: true }).nullable().optional(),
   content: z.unknown(),
   status: z.enum(STATUSES as [PublicationStatus, ...PublicationStatus[]]),
   destinationKey: z.enum(DESTINATIONS as [PublicationDestinationKey, ...PublicationDestinationKey[]]).default("portal"),
@@ -234,6 +237,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const supabase = getSupabaseAdmin();
+
+    // Scheduling is for products not on sale yet: saving a live product as
+    // "approved" would take it off the catalog until the date.
+    if (payload.status === "approved") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- column from migration 0051, not in the generated types
+      const { data: current } = await (supabase as any)
+        .from("products")
+        .select("status")
+        .eq("studio_product_id", payload.studioProductId)
+        .maybeSingle();
+      if (current?.status === "published") {
+        return res.status(409).json({ ok: false, error: "This product is already on sale — publish the update instead of scheduling it." });
+      }
+    }
 
     let coverImageUrl: string | null = null;
     let coverImageStoragePath: string | null = null;
@@ -388,6 +405,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .update({ gallery: payload.gallery })
         .eq("id", product.id);
       if (galleryError) console.error("[publishing-engine/publish] gallery not saved:", galleryError);
+    }
+
+    // Release flow (migration 0051) — best-effort like the gallery.
+    if (payload.scheduledPublishAt !== undefined || payload.status === "published") {
+      const release: Record<string, unknown> = {
+        scheduled_publish_at: payload.status === "approved" ? (payload.scheduledPublishAt ?? null) : null,
+      };
+      if (payload.status === "approved") {
+        release.approved_by = payload.publishedBy;
+        release.approved_at = new Date().toISOString();
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- columns from migration 0051
+      const { error: releaseError } = await (supabase as any).from("products").update(release).eq("id", product.id);
+      if (releaseError) console.error("[publishing-engine/publish] release date not saved:", releaseError);
     }
 
     // The BGrowth Website (bgrowth.app) reads the same `portal` schema as the
