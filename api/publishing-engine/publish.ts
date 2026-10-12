@@ -97,6 +97,12 @@ const pdfContentSchema = z.object({
   instructions: z.string().max(20000).default(""),
 });
 
+// A Download draft may be saved before its files exist (e.g. a product
+// imported from Wix whose PDF is still missing); publishing needs one.
+const pdfDraftContentSchema = pdfContentSchema.extend({
+  files: z.array(pdfContentSchema.shape.files.element).max(30),
+});
+
 const contentSchemasByType: Partial<Record<ContentType, z.ZodTypeAny>> = {
   workspace: workspaceContentSchema,
   calculator: calculatorContentSchema,
@@ -213,7 +219,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(422).json({ ok: false, error: "priceCents is required when isFree is false" });
     }
 
-    const contentSchema = contentSchemasByType[payload.contentType];
+    const contentSchema =
+      payload.contentType === "pdf" && payload.status === "draft" ? pdfDraftContentSchema : contentSchemasByType[payload.contentType];
     if (!contentSchema) {
       return res.status(501).json({
         ok: false,
