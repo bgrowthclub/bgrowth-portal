@@ -167,7 +167,16 @@ export function WorkspaceViewerPage() {
             {/* A Studio calculator (content_type 'calculator') runs here with the
                 same documents as a Workspace — a saved calculation is a
                 workspace_instances row holding {kind:'calculator', values, notes}. */}
-            {product.content_type === "calculator" && isCalculatorConfig(product.content) ? (
+            {product.content_type === "pdf" ? (
+              // Downloads (PDFs/kits) are delivered on the Website.
+              <div className="card flex min-h-[40vh] flex-col items-center justify-center gap-3 p-12 text-center">
+                <h2 className="text-2xl font-bold text-navy-900 dark:text-white">{product.name}</h2>
+                <p className="max-w-md text-sm text-navy-500 dark:text-white/60">Your files are ready to download on the BGrowth website.</p>
+                <a href={`https://bgrowth.app/platform/workspace/${product.slug}`} className="btn-primary">
+                  Open on bgrowth.app
+                </a>
+              </div>
+            ) : product.content_type === "calculator" && isCalculatorConfig(product.content) ? (
               <CalculatorRunner
                 config={product.content}
                 initialData={instance?.data as Partial<CalculatorSavedData> | undefined}

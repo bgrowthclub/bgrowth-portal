@@ -57,8 +57,9 @@ const KEYSET_SORTS: Record<Exclude<CatalogSortOption, "relevance">, { column: Ke
 
 const DEFAULT_PAGE_SIZE = 24;
 
+// Downloads (content_type 'pdf') are sold on the Website only.
 function baseSelect() {
-  return supabase.from("catalog_index").select("*");
+  return supabase.from("catalog_index").select("*").neq("content_type", "pdf");
 }
 
 type CatalogQuery = ReturnType<typeof baseSelect>;
