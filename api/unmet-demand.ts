@@ -63,21 +63,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // This endpoint only uses the server-side service role. The public client
     // cannot query or enumerate the aggregate table because RLS has no public policy.
     const supabase = getSupabaseAdmin() as any;
-    const { error } = await supabase.from("unmet_demand").upsert(
-      {
-        normalized_query: normalizedQuery,
-        category_slug: categorySlug,
-        content_type: contentType,
-        filter_signature: filterSignature,
-        occurrence_count: 1,
-        first_seen_at: new Date().toISOString(),
-        last_seen_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "normalized_query,category_slug,content_type,filter_signature",
-        ignoreDuplicates: false,
-      },
-    );
+    const { error } = await supabase.rpc("record_unmet_demand", {
+      p_normalized_query: normalizedQuery,
+      p_category_slug: categorySlug,
+      p_content_type: contentType,
+      p_filter_signature: filterSignature,
+    });
     if (error) throw error;
     return res.status(200).json({ ok: true, recorded: true });
   } catch {
