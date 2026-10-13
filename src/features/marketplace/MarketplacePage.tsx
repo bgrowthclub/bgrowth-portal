@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
@@ -42,7 +42,7 @@ export function MarketplacePage() {
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [reloadToken, setReloadToken] = useState(0);
+  const [reloadToken, setReloadToken] = useState(0);\n  const lastUnmetDemandKey = useRef<string>("");
 
   const { data: facets, isLoading: isLoadingFacets, error: facetsError, refetch: refetchFacets } = useAsync(
     () => catalogService.getFacets(),
@@ -101,6 +101,31 @@ export function MarketplacePage() {
     // `licenses` itself changes) — safe as a dependency without looping.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady, debouncedQ, categorySlug, contentType, selectedTags, freeOnly, sort, excludeProductIds, reloadToken]);
+
+  // Capture explicit search demand only after a successful, settled search
+  // returns no results. Never send raw query strings to GA4; this endpoint
+  // normalizes and filters the query before storing aggregate counts.
+  useEffect(() => {
+    const query = debouncedQ.trim();
+    if (isLoading || isLoadingInitial || loadError || facetsError || items.length > 0 || query.length < 2) return;
+
+    const key = JSON.stringify([query.toLowerCase(), categorySlug ?? "", contentType ?? "", freeOnly, [...selectedTags].sort()]);
+    if (lastUnmetDemandKey.current === key) return;
+    lastUnmetDemandKey.current = key;
+
+    void fetch("/api/unmet-demand", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        categorySlug,
+        contentType,
+        filters: { freeOnly, tags: selectedTags },
+      }),
+    }).catch(() => {
+      // Demand tracking is best-effort and must never interrupt browsing.
+    });
+  }, [debouncedQ, categorySlug, contentType, freeOnly, selectedTags, isLoading, isLoadingInitial, loadError, facetsError, items.length]);
 
   async function handleLoadMore() {
     if (!cursor) return;
