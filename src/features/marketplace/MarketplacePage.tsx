@@ -107,7 +107,7 @@ export function MarketplacePage() {
   // normalizes and filters the query before storing aggregate counts.
   useEffect(() => {
     const query = debouncedQ.trim();
-    if (isLoading || isLoadingInitial || loadError || facetsError || items.length > 0 || query.length < 2) return;
+    if (debouncedQ !== q || isLoading || isLoadingInitial || loadError || facetsError || items.length > 0 || query.length < 2) return;
 
     const key = JSON.stringify([query.toLowerCase(), categorySlug ?? "", contentType ?? "", freeOnly, [...selectedTags].sort()]);
     if (lastUnmetDemandKey.current === key) return;
@@ -125,7 +125,7 @@ export function MarketplacePage() {
     }).catch(() => {
       // Demand tracking is best-effort and must never interrupt browsing.
     });
-  }, [debouncedQ, categorySlug, contentType, freeOnly, selectedTags, isLoading, isLoadingInitial, loadError, facetsError, items.length]);
+  }, [q, debouncedQ, categorySlug, contentType, freeOnly, selectedTags, isLoading, isLoadingInitial, loadError, facetsError, items.length]);
 
   async function handleLoadMore() {
     if (!cursor) return;
