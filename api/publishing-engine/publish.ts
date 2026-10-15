@@ -479,7 +479,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error("[publishing-engine/publish] unhandled error:", err);
 
     const isDev = process.env.NODE_ENV !== "production";
-    const message = err instanceof Error ? err.message : String(err);
+    // Supabase errors are plain objects ({ code, message }), not Error —
+    // String() would turn them into "[object Object]".
+    const e = err as { code?: string; message?: string; details?: string };
+    if (e?.code === "23505" && /slug/.test(`${e.message ?? ""} ${e.details ?? ""}`)) {
+      return res.status(409).json({
+        ok: false,
+        error: "Another product already uses this name's address — rename this one.",
+      });
+    }
+    const message = err instanceof Error ? err.message : typeof e?.message === "string" ? e.message : String(err);
 
     return res.status(500).json({
       ok: false,
