@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { recordCatalogSearch } from "@/lib/searchStats";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
@@ -85,6 +86,9 @@ export function MarketplacePage() {
         if (cancelled) return;
         setItems(result.items);
         setCursor(result.nextCursor);
+        // Product Discovery data (migration 0052): what was searched and
+        // whether anything came back.
+        if (debouncedQ.trim()) recordCatalogSearch(debouncedQ, result.items.length);
       })
       .catch((err) => {
         if (cancelled) return;
