@@ -5,6 +5,7 @@ import { FormError } from "./components/FormError";
 import { TextField } from "@/components/ui/TextField";
 import { Button } from "@/components/ui/Button";
 import { authService } from "./services/authService";
+import { useAuth } from "./AuthContext";
 
 /**
  * Reached via the emailRedirectTo link from requestPasswordReset — Supabase
@@ -16,6 +17,7 @@ export function ResetPasswordPage() {
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const { linkError } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
@@ -41,7 +43,7 @@ export function ResetPasswordPage() {
   return (
     <AuthCard title="Set a new password" subtitle="Choose a strong password for your account.">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <FormError message={error} />
+        <FormError message={error ?? linkError} />
         <TextField
           label="New password"
           type="password"
