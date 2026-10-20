@@ -10,7 +10,7 @@ import { getPendingAuthRedirect, clearPendingAuthRedirect } from "@/lib/pendingR
 
 export function VerifyEmailPage() {
   const location = useLocation();
-  const { session, isLoading: isCheckingSession } = useAuth();
+  const { session, isLoading: isCheckingSession, linkError } = useAuth();
   const locationState = location.state as { email?: string; emailSendFailed?: boolean } | null;
   const email = locationState?.email;
   const emailSendFailed = locationState?.emailSendFailed ?? false;
@@ -60,7 +60,7 @@ export function VerifyEmailPage() {
           : "Check your inbox for a verification link to activate your account."
       }
     >
-      <FormError message={error} />
+      <FormError message={error ?? linkError} />
       {emailSendFailed && !resent && (
         <p className="rounded-lg bg-amber-50 px-4 py-2.5 text-sm text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">
           Your account was created, but we had trouble sending the confirmation email. Use Resend Email below to try again.
