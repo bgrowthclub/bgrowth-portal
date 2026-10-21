@@ -235,6 +235,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (payload.contentType === "journey" && (!payload.isFree || payload.isTrialEligible)) {
       return res.status(422).json({ ok: false, error: "A Journey must be free and has no trial." });
     }
+    // A Journey is only ever SAVED here as a draft. Review, approval and
+    // publishing go through Studio's release flow, which checks the whole
+    // Journey and every resource it points to first (api/_lib/journeys.js
+    // in bgrowth-studio) — this endpoint can't skip that check.
+    if (payload.contentType === "journey" && payload.status !== "draft") {
+      return res.status(422).json({ ok: false, error: "A Journey is saved as a draft; review and publishing happen in Studio's release steps." });
+    }
 
     const contentSchema =
       payload.contentType === "pdf" && payload.status === "draft"
