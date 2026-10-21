@@ -47,8 +47,11 @@ const withContent = (rows: ProductRow[]): Promise<ProductRow[]> =>
  * rather than re-querying `products` ad hoc inside a feature.
  */
 // Bundles (migration 0041) live in products too, but are sold on the
-// Website only and aren't one of this app's content types.
+// Website only and aren't one of this app's content types. Journeys
+// (0066) are Website-only too; the database already hides them from every
+// browser read — these filters only repeat that rule here.
 const BUNDLE = "bundle" as ContentType;
+const JOURNEY = "journey" as ContentType;
 
 export const productService = {
   async fetchPublished(): Promise<ProductRow[]> {
@@ -58,6 +61,7 @@ export const productService = {
       .eq("status", "published")
       // Bundles (0041) are sold on the Website only — never a Workspace here.
       .neq("content_type", BUNDLE)
+      .neq("content_type", JOURNEY)
       .order("created_at", { ascending: true });
     if (error) throw error;
     return withoutContent(data as ProductRowWithoutContent[] | null);
@@ -77,6 +81,7 @@ export const productService = {
       .eq("status", "published")
       .eq("is_trial_eligible", true)
       .not("trial_duration", "is", null)
+      .neq("content_type", JOURNEY)
       .order("created_at", { ascending: true });
     if (error) throw error;
     return withoutContent(data as ProductRowWithoutContent[] | null);
@@ -88,7 +93,12 @@ export const productService = {
    * product page's Features fallback).
    */
   async fetchBySlug(slug: string): Promise<ProductRow | null> {
-    const { data, error } = await supabase.from("products").select(PRODUCT_COLUMNS).eq("slug", slug).maybeSingle();
+    const { data, error } = await supabase
+      .from("products")
+      .select(PRODUCT_COLUMNS)
+      .eq("slug", slug)
+      .neq("content_type", JOURNEY)
+      .maybeSingle();
     if (error) throw error;
     if (!data) return null;
     const row = data as unknown as ProductRowWithoutContent;
@@ -99,7 +109,7 @@ export const productService = {
   /** Home's "Continue Learning" rail: looks up the handful of products behind a member's in-progress workspace_instances. */
   async fetchByIds(ids: string[]): Promise<ProductRow[]> {
     if (ids.length === 0) return [];
-    const { data, error } = await supabase.from("products").select(PRODUCT_COLUMNS).in("id", ids);
+    const { data, error } = await supabase.from("products").select(PRODUCT_COLUMNS).in("id", ids).neq("content_type", JOURNEY);
     if (error) throw error;
     return withContent(withoutContent(data as ProductRowWithoutContent[] | null));
   },
@@ -122,7 +132,10 @@ export const productService = {
         ? query.or(`status.eq.published,id.in.(${licensedProductIds.join(",")})`)
         : query.eq("status", "published");
     // Bundles (0041) are sold on the Website only — never a Workspace here.
-    const { data, error } = await query.neq("content_type", BUNDLE).order("created_at", { ascending: true });
+    const { data, error } = await query
+      .neq("content_type", BUNDLE)
+      .neq("content_type", JOURNEY)
+      .order("created_at", { ascending: true });
     if (error) throw error;
     return withoutContent(data as ProductRowWithoutContent[] | null);
   },

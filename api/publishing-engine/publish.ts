@@ -6,6 +6,7 @@ import { uploadAssetToStorage } from "../_lib/uploadAsset.js";
 import { generateWelcomePdf } from "../_lib/generateWelcomePdf.js";
 import { pruneOldAssets } from "../_lib/pruneOldAssets.js";
 import { workspaceContentSchema } from "../../src/schemas/workspaceContent.schema.js";
+import { journeyContentSchema, journeyDraftContentSchema } from "../../src/schemas/journeyContent.schema.js";
 import type { AssetType, ContentType, PublicationDestinationKey, PublicationStatus } from "../../src/types/database";
 
 export const config = {
@@ -22,8 +23,14 @@ export const config = {
   maxDuration: 60,
 };
 
-const CONTENT_TYPES: ContentType[] = [
-  "workspace", "template", "document", "pdf", "course", "calculator", "ai_tool", "academy_lesson",
+// "journey" (migration 0066) is saved through this endpoint but is a
+// Website-only product: it is not one of this app's ContentTypes, so the
+// Portal's own screens never offer or label it, and the database hides
+// Journey rows from every browser read (products and catalog_index).
+type PublishContentType = ContentType | "journey";
+
+const CONTENT_TYPES: PublishContentType[] = [
+  "workspace", "template", "document", "pdf", "course", "calculator", "ai_tool", "academy_lesson", "journey",
 ];
 const STATUSES: PublicationStatus[] = ["draft", "ready_for_review", "approved", "published", "archived"];
 const DESTINATIONS: PublicationDestinationKey[] = ["portal", "website", "etsy", "gumroad", "academy"];
@@ -103,10 +110,11 @@ const pdfDraftContentSchema = pdfContentSchema.extend({
   files: z.array(pdfContentSchema.shape.files.element).max(30),
 });
 
-const contentSchemasByType: Partial<Record<ContentType, z.ZodTypeAny>> = {
+const contentSchemasByType: Partial<Record<PublishContentType, z.ZodTypeAny>> = {
   workspace: workspaceContentSchema,
   calculator: calculatorContentSchema,
   pdf: pdfContentSchema,
+  journey: journeyContentSchema,
 };
 
 const publishRequestSchema = z.object({
@@ -114,7 +122,7 @@ const publishRequestSchema = z.object({
   slug: z.string().min(1),
   name: z.string().min(1),
   shortDescription: z.string().min(1),
-  contentType: z.enum(CONTENT_TYPES as [ContentType, ...ContentType[]]).default("workspace"),
+  contentType: z.enum(CONTENT_TYPES as [PublishContentType, ...PublishContentType[]]).default("workspace"),
   contentVersion: z.number().int().positive().default(1),
   categorySlug: z.string().nullable().optional(),
   // The product's tags (migration 0048). Omitted = leave its tags as they
@@ -222,8 +230,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(422).json({ ok: false, error: "priceCents is required when isFree is false" });
     }
 
+    // Journeys (0066) are free only for now: a member starts one without a
+    // license, which the database allows only for a free, published Journey.
+    if (payload.contentType === "journey" && (!payload.isFree || payload.isTrialEligible)) {
+      return res.status(422).json({ ok: false, error: "A Journey must be free and has no trial." });
+    }
+
     const contentSchema =
-      payload.contentType === "pdf" && payload.status === "draft" ? pdfDraftContentSchema : contentSchemasByType[payload.contentType];
+      payload.contentType === "pdf" && payload.status === "draft"
+        ? pdfDraftContentSchema
+        : payload.contentType === "journey" && payload.status === "draft"
+          ? journeyDraftContentSchema
+          : contentSchemasByType[payload.contentType];
     if (!contentSchema) {
       return res.status(501).json({
         ok: false,
@@ -360,7 +378,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_short_description: payload.shortDescription,
       p_content: contentResult.data,
       p_status: payload.status,
-      p_content_type: payload.contentType,
+      // "journey" is a valid database value (0066) the generated types predate.
+      p_content_type: payload.contentType as ContentType,
       p_content_version: payload.contentVersion,
       p_category_slug: payload.categorySlug ?? null,
       p_metadata: payload.metadata,

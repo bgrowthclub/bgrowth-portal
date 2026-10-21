@@ -72,7 +72,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log("[DIAGNOSTIC create-session] product lookup returned an error:", JSON.stringify(productError));
       throw productError;
     }
-    if (!product) {
+    // Journeys (migration 0066) live on the BGrowth Website only and are
+    // never sold or licensed here — the service role above bypasses the
+    // database rule that hides them from browsers, so check it explicitly.
+    if (!product || (product.content_type as string) === "journey") {
       console.log("[DIAGNOSTIC create-session] product lookup found no row — returning 404");
       return res.status(404).json({ ok: false, error: "This Workspace isn't available." });
     }
