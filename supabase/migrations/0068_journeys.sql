@@ -1,4 +1,8 @@
--- 0066 — Journeys (BGrowth Website only). Additive.
+-- 0068 — Journeys (BGrowth Website only). Additive.
+--
+-- Numbering: written as 0066 and renamed 0068 on 24/10/2026, because it uses
+-- portal.site_is_open() and portal.is_website_team() from 0067 (applied
+-- first). 0066 stays unused. Needs 0067 applied.
 --
 -- A Journey is a guided path to a goal (stages → actions) built in BGrowth
 -- Studio → Journeys and shown ONLY on the Website (/journeys). It is stored
@@ -21,6 +25,10 @@
 --      whenUnavailable = 'hide' is left out until its resource is published.
 --      An action limited to some states is shown only for states listed in
 --      the Journey's validatedStates.
+--   3b. Only while the site is open (portal.site_is_open(), 0067) or for
+--      the website team (portal.is_website_team()): before launch nobody
+--      else lists, reads or starts a Journey. No demo or release switch —
+--      Journeys appear when the site opens (decided 24/10/2026).
 --   4. A member can save progress in portal.workspace_instances for a
 --      PUBLISHED, FREE Journey without any license: no purchase, license,
 --      access e-mail or review request. One progress record per member and
@@ -75,6 +83,31 @@ language sql
 immutable
 set search_path = ''
 as $$ select array['workspace', 'calculator', 'pdf', 'bundle']::text[] $$;
+
+-- An action's estimated time in minutes (content.estimatedMinutes), or null
+-- when missing or not a number. Rounded, kept between 1 and 1440.
+create or replace function portal.journey_action_minutes(p_action jsonb)
+returns integer
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when jsonb_typeof(p_action -> 'estimatedMinutes') = 'number'
+     and (p_action ->> 'estimatedMinutes')::numeric >= 1
+    then least(round((p_action ->> 'estimatedMinutes')::numeric), 1440)::integer
+  end
+$$;
+
+-- Who can see Journeys at all: everyone once the site is open, only the
+-- website team before (0067's helpers).
+create or replace function portal.journeys_visible()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$ select portal.site_is_open() or portal.is_website_team() $$;
 
 create or replace function portal.journey_resolve_action(p_action jsonb, p_validated jsonb)
 returns jsonb
@@ -171,6 +204,7 @@ begin
     'title', coalesce(p_action ->> 'title', ''),
     'instructions', coalesce(p_action ->> 'instructions', ''),
     'optional', coalesce((p_action ->> 'optional')::boolean, false),
+    'estimatedMinutes', portal.journey_action_minutes(p_action),
     'kind', v_kind,
     'state', v_state,
     'ref', v_ref,
@@ -192,9 +226,16 @@ declare
   v_stages jsonb := '[]'::jsonb;
   v_actions jsonb;
   v_resolved jsonb;
+  v_stage_minutes integer;
+  v_total_minutes integer := 0;
+  v_outcomes jsonb;
   s record;
   a record;
 begin
+  if not portal.journeys_visible() then
+    return null;
+  end if;
+
   select p.id, p.slug, p.name, p.short_description, p.cover_image_url, p.category_id, p.is_free,
          p.last_published_at, p.content
     into v_product
@@ -219,6 +260,7 @@ begin
      order by st.ord
   loop
     v_actions := '[]'::jsonb;
+    v_stage_minutes := 0;
     for a in
       select ac.value, ac.ord
         from jsonb_array_elements(
@@ -229,6 +271,7 @@ begin
       v_resolved := portal.journey_resolve_action(a.value, v_validated);
       if v_resolved is not null then
         v_actions := v_actions || jsonb_build_array(v_resolved);
+        v_stage_minutes := v_stage_minutes + coalesce((v_resolved ->> 'estimatedMinutes')::integer, 0);
       end if;
     end loop;
     if jsonb_array_length(v_actions) > 0 then
@@ -236,10 +279,20 @@ begin
         'id', s.value ->> 'id',
         'title', coalesce(s.value ->> 'title', ''),
         'summary', coalesce(s.value ->> 'summary', ''),
+        'level', case when s.value ->> 'level' in ('beginner', 'best_practices', 'expansion') then s.value ->> 'level' end,
+        'estimatedMinutes', v_stage_minutes,
         'actions', v_actions
       ));
+      v_total_minutes := v_total_minutes + v_stage_minutes;
     end if;
   end loop;
+
+  -- Expected outcomes: text items only, at most 10.
+  select coalesce(jsonb_agg(o.value order by o.ord), '[]'::jsonb) into v_outcomes
+    from jsonb_array_elements(
+           case when jsonb_typeof(v_product.content -> 'outcomes') = 'array' then v_product.content -> 'outcomes' else '[]'::jsonb end
+         ) with ordinality o(value, ord)
+   where jsonb_typeof(o.value) = 'string' and btrim(o.value #>> '{}') <> '' and o.ord <= 10;
 
   return jsonb_build_object(
     'id', v_product.id,
@@ -254,6 +307,9 @@ begin
     'intro', coalesce(v_product.content ->> 'intro', ''),
     'completionMessage', coalesce(v_product.content ->> 'completionMessage', ''),
     'notice', coalesce(v_product.content ->> 'notice', ''),
+    'audience', coalesce(v_product.content ->> 'audience', ''),
+    'outcomes', v_outcomes,
+    'estimatedMinutes', v_total_minutes,
     'validatedStates', v_validated,
     'stages', v_stages
   );
@@ -261,6 +317,8 @@ end;
 $$;
 
 -- The published Journeys, newest first (the Website's /journeys list).
+-- Dropped first: an earlier local draft returned fewer columns.
+drop function if exists portal.list_journeys();
 create or replace function portal.list_journeys()
 returns table (
   id uuid,
@@ -271,22 +329,49 @@ returns table (
   category_id uuid,
   is_free boolean,
   published_at timestamptz,
-  stage_count integer
+  stage_count integer,
+  estimated_minutes integer,
+  audience text
 )
 language sql
 stable
 security definer
 set search_path = ''
 as $$
-  select p.id, p.slug, p.name, p.short_description, p.cover_image_url, p.category_id, p.is_free,
-         p.last_published_at,
-         case when jsonb_typeof(p.content -> 'stages') = 'array' then jsonb_array_length(p.content -> 'stages') else 0 end
-    from portal.products p
-   where p.content_type = 'journey' and p.status = 'published'
-   order by p.last_published_at desc nulls last
+  -- Stages and minutes counted the way get_journey_outline shows them: only
+  -- actions that resolve (not hidden, not limited to unvalidated states).
+  with j as (
+    select p.*,
+           case when jsonb_typeof(p.content -> 'validatedStates') = 'array' then p.content -> 'validatedStates' else '[]'::jsonb end as validated
+      from portal.products p
+     where p.content_type = 'journey' and p.status = 'published'
+       and portal.journeys_visible()
+  ),
+  shown as (
+    select j.id, st.ord as stage_ord, portal.journey_action_minutes(ac.value) as minutes
+      from j
+      cross join lateral jsonb_array_elements(
+             case when jsonb_typeof(j.content -> 'stages') = 'array' then j.content -> 'stages' else '[]'::jsonb end
+           ) with ordinality st(value, ord)
+      cross join lateral jsonb_array_elements(
+             case when jsonb_typeof(st.value -> 'actions') = 'array' then st.value -> 'actions' else '[]'::jsonb end
+           ) ac(value)
+     where portal.journey_resolve_action(ac.value, j.validated) is not null
+  )
+  select j.id, j.slug, j.name, j.short_description, j.cover_image_url, j.category_id, j.is_free,
+         j.last_published_at,
+         (select count(distinct s.stage_ord) from shown s where s.id = j.id)::integer,
+         (select coalesce(sum(s.minutes), 0) from shown s where s.id = j.id)::integer,
+         coalesce(j.content ->> 'audience', '')
+    from j
+   order by j.last_published_at desc nulls last
 $$;
 
 revoke execute on function portal.journey_ref_types() from public;
+revoke execute on function portal.journey_action_minutes(jsonb) from public;
+revoke execute on function portal.journeys_visible() from public;
+grant execute on function portal.journey_action_minutes(jsonb) to anon, authenticated, service_role;
+grant execute on function portal.journeys_visible() to anon, authenticated, service_role;
 revoke execute on function portal.journey_resolve_action(jsonb, jsonb) from public, anon, authenticated;
 revoke execute on function portal.get_journey_outline(text) from public;
 revoke execute on function portal.list_journeys() from public;
@@ -296,6 +381,7 @@ grant execute on function portal.get_journey_outline(text) to anon, authenticate
 grant execute on function portal.list_journeys() to anon, authenticated, service_role;
 
 -- 4. Progress on a free Journey, without a license. ------------------------
+-- Only while Journeys are visible (site open, or the website team).
 -- security definer: the policy below can't see Journey rows through RLS (2a).
 create or replace function portal.is_open_journey(p_product_id uuid)
 returns boolean
@@ -311,6 +397,7 @@ as $$
        and p.status = 'published'
        and p.is_free
   )
+  and portal.journeys_visible()
 $$;
 
 revoke execute on function portal.is_open_journey(uuid) from public;

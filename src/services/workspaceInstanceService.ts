@@ -9,7 +9,7 @@ import type { WorkspaceInstanceRow } from "@/types/database";
  * only ever see/create/update their own rows, and only for a Workspace
  * they hold an active license for.
  */
-// A member's progress in a Website Journey (migration 0066) is also a
+// A member's progress in a Website Journey (migration 0068) is also a
 // workspace_instances row, marked data.kind = 'journey'. It belongs to the
 // Website only, so this app never lists or opens it.
 const isJourneyProgress = (row: WorkspaceInstanceRow | null) =>

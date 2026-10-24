@@ -48,7 +48,7 @@ const withContent = (rows: ProductRow[]): Promise<ProductRow[]> =>
  */
 // Bundles (migration 0041) live in products too, but are sold on the
 // Website only and aren't one of this app's content types. Journeys
-// (0066) are Website-only too; the database already hides them from every
+// (0068) are Website-only too; the database already hides them from every
 // browser read — these filters only repeat that rule here.
 const BUNDLE = "bundle" as ContentType;
 const JOURNEY = "journey" as ContentType;

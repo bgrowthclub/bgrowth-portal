@@ -23,7 +23,7 @@ export const config = {
   maxDuration: 60,
 };
 
-// "journey" (migration 0066) is saved through this endpoint but is a
+// "journey" (migration 0068) is saved through this endpoint but is a
 // Website-only product: it is not one of this app's ContentTypes, so the
 // Portal's own screens never offer or label it, and the database hides
 // Journey rows from every browser read (products and catalog_index).
@@ -230,7 +230,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(422).json({ ok: false, error: "priceCents is required when isFree is false" });
     }
 
-    // Journeys (0066) are free only for now: a member starts one without a
+    // Journeys (0068) are free only for now: a member starts one without a
     // license, which the database allows only for a free, published Journey.
     if (payload.contentType === "journey" && (!payload.isFree || payload.isTrialEligible)) {
       return res.status(422).json({ ok: false, error: "A Journey must be free and has no trial." });
@@ -385,7 +385,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_short_description: payload.shortDescription,
       p_content: contentResult.data,
       p_status: payload.status,
-      // "journey" is a valid database value (0066) the generated types predate.
+      // "journey" is a valid database value (0068) the generated types predate.
       p_content_type: payload.contentType as ContentType,
       p_content_version: payload.contentVersion,
       p_category_slug: payload.categorySlug ?? null,

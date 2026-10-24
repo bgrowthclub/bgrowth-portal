@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /**
  * A Journey's content (products.content when content_type is 'journey',
- * migration 0066) — built in BGrowth Studio → Journeys, shown only on the
+ * migration 0068) — built in BGrowth Studio → Journeys, shown only on the
  * BGrowth Website. A Journey is ordered stages of actions; an action only
  * REFERENCES an existing product (by id) or Knowledge article (by slug) —
  * it never copies their content. The database resolves each reference when
@@ -28,6 +28,8 @@ const journeyActionObject = z.object({
   title: z.string().trim().min(1).max(160),
   instructions: z.string().max(4000).default(""),
   optional: z.boolean().default(false),
+  // Estimated time in minutes; the Website adds them up per stage and Journey.
+  estimatedMinutes: z.number().int().min(1).max(1440).optional(),
   kind: z.enum(["product", "article", "video", "link", "manual"]),
   productId: z.string().uuid().optional(),
   articleSlug: z.string().trim().min(1).max(200).optional(),
@@ -50,6 +52,8 @@ export const journeyStageSchema = z.object({
   id,
   title: z.string().trim().min(1).max(120),
   summary: z.string().max(1000).default(""),
+  // Where the stage sits: getting started, good practices, or growing.
+  level: z.enum(["beginner", "best_practices", "expansion"]).optional(),
   actions: z.array(journeyActionSchema).min(1).max(50),
 });
 
@@ -74,6 +78,9 @@ const journeyBase = z.object({
   goal: z.string().trim().min(1).max(300),
   intro: z.string().max(4000).default(""),
   completionMessage: z.string().max(2000).default(""),
+  // Who the Journey is for, and what the member should have at the end.
+  audience: z.string().trim().max(500).default(""),
+  outcomes: z.array(z.string().trim().min(1).max(200)).max(10).default([]),
   // Always shown: general information does not replace each state's law.
   notice: z.string().trim().min(1).max(1000),
   // States whose specific requirements were checked; [] = general content only.

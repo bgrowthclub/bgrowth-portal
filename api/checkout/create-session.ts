@@ -72,7 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log("[DIAGNOSTIC create-session] product lookup returned an error:", JSON.stringify(productError));
       throw productError;
     }
-    // Journeys (migration 0066) live on the BGrowth Website only and are
+    // Journeys (migration 0068) live on the BGrowth Website only and are
     // never sold or licensed here — the service role above bypasses the
     // database rule that hides them from browsers, so check it explicitly.
     if (!product || (product.content_type as string) === "journey") {
