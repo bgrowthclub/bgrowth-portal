@@ -7,6 +7,7 @@ import { generateWelcomePdf } from "../_lib/generateWelcomePdf.js";
 import { pruneOldAssets } from "../_lib/pruneOldAssets.js";
 import { workspaceContentSchema } from "../../src/schemas/workspaceContent.schema.js";
 import { journeyContentSchema, journeyDraftContentSchema } from "../../src/schemas/journeyContent.schema.js";
+import { courseContentSchema } from "../../src/schemas/courseContent.schema.js";
 import type { AssetType, ContentType, PublicationDestinationKey, PublicationStatus } from "../../src/types/database";
 
 export const config = {
@@ -115,6 +116,9 @@ const contentSchemasByType: Partial<Record<PublishContentType, z.ZodTypeAny>> = 
   calculator: calculatorContentSchema,
   pdf: pdfContentSchema,
   journey: journeyContentSchema,
+  // BGrowth Academy™ (30/10/2026): a course is a product like any other, so
+  // it only needed its content schema to become publishable.
+  course: courseContentSchema,
 };
 
 const publishRequestSchema = z.object({
