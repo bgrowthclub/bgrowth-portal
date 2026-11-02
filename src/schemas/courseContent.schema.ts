@@ -69,10 +69,17 @@ const courseQuestion = z.union([
   // A typed answer. `accept` holds every wording counted as right; the
   // comparison ignores case and surrounding spaces. There is no grade here,
   // so a near miss shows the expected answer rather than a bare "wrong".
+  //
+  // An EMPTY `accept` is allowed on purpose (02/11/2026): a question
+  // imported from Wix arrives without one, because Wix stores no answer key
+  // for its typed and numeric questions. Keeping the question is what lets
+  // the author fill it in later — dropping it at save would lose it for
+  // good. It is never shown to a student: the reader skips a question it
+  // cannot mark, and the Studio's check warns that it is still pending.
   z.object({
     ...questionBase,
     kind: z.literal("typed"),
-    accept: z.array(z.string().trim().min(1).max(200)).min(1).max(10),
+    accept: z.array(z.string().trim().min(1).max(200)).max(10),
   }),
 ]);
 
