@@ -51,6 +51,36 @@ const courseBlock = z.discriminatedUnion("type", [
   }),
   // The handoff: the Growth System, Journey, calculator, download or article
   // this lesson gives the student, by its address on the Website.
+  // A short self-check inside a lesson (02/11/2026). Deliberately NOT a
+  // gate: the student answers, sees at once whether they got it right and
+  // why, and moves on either way — no passing grade, no limit on retries.
+  // Wix's own programs only use a passing grade to decide who COMPLETES a
+  // program, not to block the next step; if BGrowth ever issues
+  // certificates, that is when a passing grade earns its place.
+  z.object({
+    type: z.literal("quiz"),
+    title: z.string().trim().max(200).optional(),
+    questions: z
+      .array(
+        z.object({
+          // Stable: the student's answer is saved against it, so renaming
+          // the text keeps the answer and changing the id loses it.
+          id,
+          prompt: z.string().trim().min(1).max(1000),
+          options: z
+            .array(z.object({ id, text: z.string().trim().min(1).max(300) }))
+            .min(2)
+            .max(6),
+          // The id of the one right option.
+          answer: id,
+          // Shown after answering, right or wrong — this is where a quiz
+          // teaches instead of just scoring.
+          explanation: z.string().trim().max(1000).optional(),
+        }),
+      )
+      .min(1)
+      .max(30),
+  }),
   z.object({
     type: z.literal("product"),
     slug: z
@@ -93,6 +123,10 @@ export const courseContentSchema = z
     // so a repeated one would make two lessons share a tick.
     const moduleIds = new Set<string>();
     const lessonIds = new Set<string>();
+    // Quiz answers are saved per question id, in the same record as the
+    // ticked lessons — so a repeated id would make two questions share one
+    // answer, exactly as a repeated lesson id would share a tick.
+    const questionIds = new Set<string>();
     course.modules.forEach((module, m) => {
       if (moduleIds.has(module.id))
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["modules", m, "id"], message: "Two modules share this id." });
@@ -105,6 +139,29 @@ export const courseContentSchema = z
             message: "Two lessons share this id — progress is kept per lesson id.",
           });
         lessonIds.add(lesson.id);
+
+        lesson.blocks.forEach((block, b) => {
+          if (block.type !== "quiz") return;
+          block.questions.forEach((question, q) => {
+            const at = ["modules", m, "lessons", l, "blocks", b, "questions", q] as const;
+            if (questionIds.has(question.id))
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: [...at, "id"],
+                message: "Two questions share this id — an answer is saved per question id.",
+              });
+            questionIds.add(question.id);
+
+            const optionIds = new Set<string>();
+            question.options.forEach((option, o) => {
+              if (optionIds.has(option.id))
+                ctx.addIssue({ code: z.ZodIssueCode.custom, path: [...at, "options", o, "id"], message: "Two options share this id." });
+              optionIds.add(option.id);
+            });
+            if (!optionIds.has(question.answer))
+              ctx.addIssue({ code: z.ZodIssueCode.custom, path: [...at, "answer"], message: "The right answer must be one of the options." });
+          });
+        });
       });
     });
   });
