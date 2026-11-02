@@ -26,6 +26,56 @@ const httpsUrl = z.string().trim().url().startsWith("https://").max(2000);
 
 // What a lesson is made of. Every kind is something the ecosystem already
 // has; nothing here is author-written markup, so no sanitizer is needed.
+// One quiz question (02/11/2026; the typed and multi kinds added the same
+// day, after the Wix courses showed that only about half of their questions
+// are single-choice).
+//
+// `kind` is absent on a single-choice question, so every quiz written before
+// the other kinds existed stays valid and keeps its meaning.
+const questionBase = {
+  // Stable: the student's answer is saved against it, so rewording the
+  // question keeps the answer and changing the id loses it.
+  id,
+  prompt: z.string().trim().min(1).max(1000),
+  // Shown after answering, right or wrong — this is where a quiz teaches
+  // instead of just scoring.
+  explanation: z.string().trim().max(1000).optional(),
+};
+
+const quizOptions = z
+  .array(z.object({ id, text: z.string().trim().min(1).max(300) }))
+  .min(2)
+  .max(8);
+
+const courseQuestion = z.union([
+  // Single choice: one right option, picked in one click.
+  z.object({
+    ...questionBase,
+    kind: z.literal("single").optional(),
+    options: quizOptions,
+    // The id of the one right option.
+    answer: id,
+  }),
+  // Several right options — "tick everything that applies". The student
+  // commits once and is told which ones they missed.
+  z.object({
+    ...questionBase,
+    kind: z.literal("multi"),
+    options: quizOptions,
+    // The ids of every right option; the answer counts only if it matches
+    // the whole set.
+    answers: z.array(id).min(1).max(8),
+  }),
+  // A typed answer. `accept` holds every wording counted as right; the
+  // comparison ignores case and surrounding spaces. There is no grade here,
+  // so a near miss shows the expected answer rather than a bare "wrong".
+  z.object({
+    ...questionBase,
+    kind: z.literal("typed"),
+    accept: z.array(z.string().trim().min(1).max(200)).min(1).max(10),
+  }),
+]);
+
 const courseBlock = z.discriminatedUnion("type", [
   z.object({ type: z.literal("text"), body: z.string().trim().min(1).max(20000) }),
   z.object({
@@ -60,26 +110,7 @@ const courseBlock = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("quiz"),
     title: z.string().trim().max(200).optional(),
-    questions: z
-      .array(
-        z.object({
-          // Stable: the student's answer is saved against it, so renaming
-          // the text keeps the answer and changing the id loses it.
-          id,
-          prompt: z.string().trim().min(1).max(1000),
-          options: z
-            .array(z.object({ id, text: z.string().trim().min(1).max(300) }))
-            .min(2)
-            .max(6),
-          // The id of the one right option.
-          answer: id,
-          // Shown after answering, right or wrong — this is where a quiz
-          // teaches instead of just scoring.
-          explanation: z.string().trim().max(1000).optional(),
-        }),
-      )
-      .min(1)
-      .max(30),
+    questions: z.array(courseQuestion).min(1).max(30),
   }),
   z.object({
     type: z.literal("product"),
@@ -152,12 +183,29 @@ export const courseContentSchema = z
               });
             questionIds.add(question.id);
 
+            if (question.kind === "typed") return;
+
             const optionIds = new Set<string>();
             question.options.forEach((option, o) => {
               if (optionIds.has(option.id))
                 ctx.addIssue({ code: z.ZodIssueCode.custom, path: [...at, "options", o, "id"], message: "Two options share this id." });
               optionIds.add(option.id);
             });
+
+            if (question.kind === "multi") {
+              const seen = new Set<string>();
+              question.answers.forEach((answer, a) => {
+                if (!optionIds.has(answer))
+                  ctx.addIssue({ code: z.ZodIssueCode.custom, path: [...at, "answers", a], message: "Every right answer must be one of the options." });
+                if (seen.has(answer))
+                  ctx.addIssue({ code: z.ZodIssueCode.custom, path: [...at, "answers", a], message: "This option is listed twice as a right answer." });
+                seen.add(answer);
+              });
+              if (question.answers.length >= question.options.length)
+                ctx.addIssue({ code: z.ZodIssueCode.custom, path: [...at, "answers"], message: "Every option is marked right — leave at least one that isn't." });
+              return;
+            }
+
             if (!optionIds.has(question.answer))
               ctx.addIssue({ code: z.ZodIssueCode.custom, path: [...at, "answer"], message: "The right answer must be one of the options." });
           });
