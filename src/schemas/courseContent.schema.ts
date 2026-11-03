@@ -154,6 +154,16 @@ export const courseContentSchema = z
     intro: z.string().trim().max(4000).optional(),
     // What the student will be able to do by the end.
     outcomes: z.array(z.string().trim().min(1).max(300)).max(10).optional(),
+    // The hours printed on the certificate (02/11/2026). Set by hand, never
+    // from the lessons' estimated minutes: a certificate states a fact, and
+    // those minutes are a guess made from how much text a lesson holds.
+    // Absent = the certificate simply doesn't mention hours.
+    hours: z.number().int().min(1).max(999).optional(),
+    // Which certificate this course issues. 'achievement' means passing an
+    // assessment, which does not exist yet — the Studio offers it disabled,
+    // so nothing can issue one by accident, but the value is accepted here so
+    // the day it exists nothing has to be migrated.
+    certificate: z.enum(["completion", "achievement", "participation"]).optional(),
     modules: z.array(courseModule).min(1).max(60),
   })
   .superRefine((course, ctx) => {
